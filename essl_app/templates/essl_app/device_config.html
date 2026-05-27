@@ -1,0 +1,174 @@
+{% extends 'hostel_app/base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --card: #22263a;
+            --border: #2e3350;
+            --text: #e2e8f0;
+            --muted: #8892a4;
+            --cyan: #06b6d4;
+            --green: #22c55e;
+            --red: #ef4444;
+        }
+        .main { max-width: 1000px; margin: 0 auto; padding: 28px 20px; }
+        h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; }
+        .subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 28px; }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; }
+        .form-group input, .form-group select {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .form-group input:focus { border-color: var(--cyan); }
+
+        .btn {
+            background: var(--cyan);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; padding: 12px; border-bottom: 1px solid var(--border); }
+        td { padding: 12px; font-size: 0.875rem; border-bottom: 1px solid var(--border); }
+        
+        .badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .badge-info { background: rgba(6, 182, 212, 0.15); color: var(--cyan); }
+
+        .actions { display: flex; gap: 8px; }
+        .btn-sm { padding: 4px 8px; font-size: 0.75rem; width: auto; border-radius: 4px; }
+        .btn-red { background: var(--red); color: white; }
+        .btn-yellow { background: #f59e0b; color: black; }
+
+        @media (max-width: 768px) {
+            .config-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="main">
+    <h1>⚙️ Biometric Device Configuration</h1>
+    <p class="subtitle">Define the physical location and IP address for each biometric machine.</p>
+
+    <div class="config-grid">
+        <!-- Add/Edit Form -->
+        <div class="card">
+            <h2 id="form-title" style="font-size: 1.1rem; margin-bottom: 20px;">Add New Device</h2>
+            <form method="post" id="device-form">
+                {% csrf_token %}
+                <input type="hidden" name="device_id" id="device_id">
+                <div class="form-group">
+                    <label>Device Name</label>
+                    <input type="text" name="name" id="name" placeholder="e.g. Main Gate Entry" required>
+                </div>
+                <div class="form-group">
+                    <label>IP Address</label>
+                    <input type="text" name="ip_address" id="ip_address" placeholder="e.g. 192.168.1.100" required>
+                </div>
+                <div class="form-group">
+                    <label>Location Type</label>
+                    <select name="location_type" id="location_type" required>
+                        {% for val, label in location_choices %}
+                            <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn" id="submit-btn">Register Device</button>
+                <button type="button" onclick="resetForm()" class="btn btn-yellow" style="margin-top: 8px; display: none;" id="cancel-btn">Cancel Edit</button>
+            </form>
+        </div>
+
+        <!-- Devices List -->
+        <div class="card">
+            <h2 style="font-size: 1.1rem; margin-bottom: 20px;">Registered Devices</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Device & IP</th>
+                        <th>Location</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in devices %}
+                    <tr>
+                        <td>
+                            <div style="font-weight: 600;">{{ device.name }}</div>
+                            <div style="font-size: 0.75rem; color: var(--muted);">{{ device.ip_address }}</div>
+                        </td>
+                        <td><span class="badge badge-info">{{ device.get_location_type_display }}</span></td>
+                        <td class="actions">
+                            <button onclick="editDevice('{{ device.pk }}', '{{ device.name }}', '{{ device.ip_address }}', '{{ device.location_type }}')" class="btn btn-sm btn-yellow">Edit</button>
+                            <a href="{% url 'delete_device' device.pk %}" onclick="return confirm('Are you sure?')" class="btn btn-sm btn-red" style="text-decoration:none;">Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: var(--muted); padding: 40px;">No devices configured yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function editDevice(id, name, ip, type) {
+        document.getElementById('device_id').value = id;
+        document.getElementById('name').value = name;
+        document.getElementById('ip_address').value = ip;
+        document.getElementById('location_type').value = type;
+        
+        document.getElementById('form-title').innerText = 'Edit Device: ' + name;
+        document.getElementById('submit-btn').innerText = 'Update Device';
+        document.getElementById('cancel-btn').style.display = 'block';
+    }
+
+    function resetForm() {
+        document.getElementById('device-form').reset();
+        document.getElementById('device_id').value = '';
+        document.getElementById('form-title').innerText = 'Add New Device';
+        document.getElementById('submit-btn').innerText = 'Register Device';
+        document.getElementById('cancel-btn').style.display = 'none';
+    }
+</script>
+{% endblock %}

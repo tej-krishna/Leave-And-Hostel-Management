@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        p { font-size: 1.1em; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ student.name }} ({{ student.student_id }})</h1>
+        <p><strong>Mobile:</strong> {{ student.mobile_number }}</p>
+        <p><strong>Year:</strong> {{ student.get_year_display }}</p>
+        <p><strong>Branch:</strong> {{ student.get_branch_display }}</p>
+        <p><strong>Status:</strong> {{ student.get_status_display }}</p>
+        <p><a href="javascript:history.back()">Go Back</a></p>
+    </div>
+</body>
+</html>

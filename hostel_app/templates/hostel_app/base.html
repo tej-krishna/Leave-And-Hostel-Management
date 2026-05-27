@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Hostel Management{% endblock %}</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Previous Uploaded Template Blue Theme */
+            --blue-deep: #0056b3;
+            --blue-primary: #007bff;
+            --blue-medium: #a8d4ff;
+            --blue-light: #e6f2ff;
+            --blue-whitest: #f0f2f5;
+
+            --neutral-white: #ffffff;
+            --neutral-border: #e0e0e0;
+
+            --text-dark: #333333;
+            --text-light: #ffffff;
+
+            --sidebar-width: 260px;
+            --sidebar-collapsed-width: 75px;
+            --header-height: 60px;
+
+            --shadow-light: rgba(0, 0, 0, 0.05);
+            --shadow-medium: rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--blue-whitest);
+            color: var(--text-dark);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* =========================================
+           SIDEBAR
+        ========================================= */
+
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--neutral-white);
+            border-right: 1px solid var(--neutral-border);
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+            box-shadow: 2px 0 12px var(--shadow-light);
+        }
+
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+        }
+
+        .sidebar-header {
+            height: var(--header-height);
+            background: rgba(0, 86, 179, 0.92);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 18px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-logo {
+            font-size: 1.15rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            transition: 0.3s;
+        }
+
+        .sidebar.collapsed .sidebar-logo {
+            opacity: 0;
+            width: 0;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.4rem;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            margin: 0;
+            padding: 18px 0;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .menu-item {
+            margin-bottom: 6px;
+        }
+
+        .menu-link {
+            display: flex;
+            align-items: center;
+            padding: 13px 20px;
+            text-decoration: none;
+            color: var(--text-dark);
+            transition: 0.25s ease;
+            border-radius: 0;
+        }
+
+        .menu-link:hover {
+            background: var(--blue-light);
+            color: var(--blue-deep);
+        }
+
+        .menu-link.active {
+            background: var(--blue-primary);
+            color: white;
+            border-left: 4px solid white;
+        }
+
+        .menu-icon {
+            min-width: 32px;
+            font-size: 1.15rem;
+            text-align: center;
+            margin-right: 14px;
+        }
+
+        .menu-text {
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: 0.3s;
+            white-space: nowrap;
+        }
+
+        .sidebar.collapsed .menu-text {
+            display: none;
+        }
+
+        /* =========================================
+           FOOTER
+        ========================================= */
+
+        .sidebar-footer {
+            padding: 15px;
+            border-top: 1px solid var(--neutral-border);
+            background: #fafcff;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            background: var(--blue-light);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .sidebar.collapsed .user-info {
+            display: none;
+        }
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--blue-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            margin-right: 10px;
+        }
+
+        .user-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--blue-deep);
+        }
+
+        .user-role-badge {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: capitalize;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 600;
+            background: #ffeaea;
+            color: #dc3545;
+            transition: 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #dc3545;
+            color: white;
+        }
+
+        .sidebar.collapsed .logout-btn span {
+            display: none;
+        }
+
+        /* =========================================
+           MAIN CONTENT
+        ========================================= */
+
+        .main-content {
+            flex-grow: 1;
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+            padding: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed ~ .main-content {
+            margin-left: var(--sidebar-collapsed-width);
+            width: calc(100% - var(--sidebar-collapsed-width));
+        }
+
+        .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-title {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--blue-deep);
+        }
+
+        /* =========================================
+           MOBILE HEADER
+        ========================================= */
+
+        .mobile-header {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
+                align-items: center;
+                height: var(--header-height);
+                background: rgba(0, 86, 179, 0.95);
+                color: white;
+                padding: 0 20px;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                z-index: 999;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+                width: var(--sidebar-width) !important;
+            }
+
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0 !important;
+                width: 100% !important;
+                padding-top: calc(30px + var(--header-height));
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- Mobile Header -->
+    <div class="mobile-header">
+        <button class="toggle-btn" id="mobile-toggle-btn">☰</button>
+        <div style="margin-left:15px; font-weight:600;">
+            Hostel App
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">Hostel App</div>
+            <button class="toggle-btn" id="desktop-toggle-btn">☰</button>
+        </div>
+
+        <ul class="sidebar-menu">
+            {% if request.session.user_role == 'viewer' or request.session.user_role == 'editor' %}
+            <li class="menu-item">
+                <a href="{% url 'dashboard' %}" class="menu-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <span class="menu-icon">📊</span>
+                    <span class="menu-text">Dashboard</span>
+                </a>
+            </li>
+
+            <li class="menu-item">
+                <a href="{% url 'total_students_list' %}" class="menu-link {% if 'students_list' in request.resolver_match.url_name or 'total_students' in request.resolver_match.url_name %}active{% endif %}">
+                    <span class="menu-icon">👥</span>
+                    <span class="menu-text">Total Students</span>
+                </a>
+            </li>
+
+            <li class="menu-item">
+                <a href="{% url 'room_selection_default' %}" class="menu-link {% if 'room_' in request.resolver_match.url_name %}active{% endif %}">
+                    <span class="menu-icon">🏢</span>
+                    <span class="menu-text">Room Data</span>
+                </a>
+            </li>
+
+            <li class="menu-item">
+                <a href="{% url 'leave_management' %}" class="menu-link {% if request.resolver_match.url_name == 'leave_management' %}active{% endif %}">
+                    <span class="menu-icon">✅</span>
+                    <span class="menu-text">Leave Approval</span>
+                </a>
+            </li>
+
+            <li class="menu-item">
+                <a href="{% url 'biometric_track' %}" class="menu-link {% if request.resolver_match.url_name == 'biometric_track' %}active{% endif %}">
+                    <span class="menu-icon">📡</span>
+                    <span class="menu-text">Biometric Track</span>
+                </a>
+            </li>
+
+            {% if request.session.user_role == 'editor' %}
+            <li class="menu-item">
+                <a href="{% url 'ip_assignment' %}" class="menu-link {% if request.resolver_match.url_name == 'ip_assignment' %}active{% endif %}">
+                    <span class="menu-icon">⚙️</span>
+                    <span class="menu-text">IP Assignment</span>
+                </a>
+            </li>
+            {% endif %}
+            {% endif %}
+
+            {% if request.session.user_role == 'viewer' or request.session.user_role == 'editor' or request.session.user_role == 'student' %}
+            <li class="menu-item">
+                <a href="{% url 'student_lookup' %}" class="menu-link {% if request.resolver_match.url_name == 'student_lookup' %}active{% endif %}">
+                    <span class="menu-icon">🔍</span>
+                    <span class="menu-text">Student Lookup</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if request.session.user_role == 'student' %}
+            <li class="menu-item">
+                <a href="{% url 'apply_leave' %}" class="menu-link {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
+                    <span class="menu-icon">📝</span>
+                    <span class="menu-text">Apply Leave</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+
+        <div class="sidebar-footer">
+            {% if request.session.student_name %}
+            <div class="user-info">
+                <div class="user-avatar">
+                    {{ request.session.student_name|make_list|first|upper }}
+                </div>
+                <div class="user-details">
+                    <span class="user-name">{{ request.session.student_name }}</span>
+                    <span class="user-role-badge">{{ request.session.user_role }}</span>
+                </div>
+            </div>
+
+            <a href="{% url 'logout' %}" class="logout-btn">
+                <span class="menu-icon" style="margin-right:8px;">🚪</span>
+                <span>Logout</span>
+            </a>
+            {% else %}
+            <a href="{% url 'login' %}" class="logout-btn">
+                <span class="menu-icon" style="margin-right:8px;">🔑</span>
+                <span>Login</span>
+            </a>
+            {% endif %}
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const sidebar = document.getElementById("sidebar");
+            const desktopToggle = document.getElementById("desktop-toggle-btn");
+            const mobileToggle = document.getElementById("mobile-toggle-btn");
+
+            if (desktopToggle) {
+                desktopToggle.addEventListener("click", function () {
+                    sidebar.classList.toggle("collapsed");
+                    localStorage.setItem(
+                        "sidebarCollapsed",
+                        sidebar.classList.contains("collapsed")
+                    );
+                });
+            }
+
+            if (mobileToggle) {
+                mobileToggle.addEventListener("click", function () {
+                    sidebar.classList.toggle("mobile-open");
+                });
+            }
+
+            if (window.innerWidth > 768) {
+                const collapsed =
+                    localStorage.getItem("sidebarCollapsed") === "true";
+
+                if (collapsed) {
+                    sidebar.classList.add("collapsed");
+                }
+            }
+
+            document.addEventListener("click", function (e) {
+                if (
+                    window.innerWidth <= 768 &&
+                    sidebar.classList.contains("mobile-open") &&
+                    !sidebar.contains(e.target) &&
+                    e.target !== mobileToggle
+                ) {
+                    sidebar.classList.remove("mobile-open");
+                }
+            });
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

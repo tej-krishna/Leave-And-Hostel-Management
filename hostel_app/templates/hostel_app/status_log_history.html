@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+            position: relative;
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .search-section {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+        .search-section input[type="text"] {
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1.1em;
+            width: 70%;
+            max-width: 400px;
+        }
+        .search-section button {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.2s;
+        }
+        .search-section button:hover {
+            background-color: #0056b3;
+        }
+        .section-header {
+            font-size: 1.6em;
+            color: #007bff;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .student-name {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 0.95em;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #555;
+        }
+        .data-table tr:nth-child(even) {
+            background-color: #f8f8f8;
+        }
+        .data-table tr:hover {
+            background-color: #e9ecef;
+        }
+        .no-records {
+            font-style: italic;
+            color: #666;
+            text-align: center;
+            padding: 15px 0;
+            font-size: 1.05em;
+        }
+        .item-status-indicator {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            text-transform: capitalize;
+        }
+        /* Status Badges */
+        .item-status-indicator.present { background-color: #d4edda; color: #155724; } /* Green for Present */
+        .item-status-indicator.leave { background-color: #fff3cd; color: #856404; }   /* Yellow/Orange for Leave */
+        .item-status-indicator.outing { background-color: #cce5ff; color: #004085; }  /* Light Blue for Outing */
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            .search-section {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .search-section input, .search-section button {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .data-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            .data-table thead, .data-table tbody, .data-table th, .data-table td, .data-table tr {
+                display: block;
+            }
+            .data-table th, .data-table td {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .data-table tr {
+                margin-bottom: 10px;
+                border: 1px solid #ddd;
+            }
+            .data-table td:before {
+                content: attr(data-label);
+                float: left;
+                font-weight: bold;
+                margin-right: 10px;
+                width: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ title }}</h1>
+
+        <div class="search-section">
+            <form method="get" action="{% url 'status_log_history' %}">
+                <input type="text" name="student_id" placeholder="Enter Student ID" value="{{ student_id_query }}">
+                <button type="submit">View History</button>
+            </form>
+        </div>
+
+        {% if student %}
+            <p class="student-name">Status History for: <strong>{{ student.name }} ({{ student.student_id }})</strong></p>
+
+            {% if status_logs %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Status Changed To</th> {# Changed column header #}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in status_logs %}
+                            <tr>
+                                <td data-label="Timestamp">{{ log.change_timestamp|date:"M d, Y H:i A" }}</td>
+                                <td data-label="Status Changed To">
+                                    {# Only display current_status, as old_status is removed from model #}
+                                    <span class="item-status-indicator {{ log.current_status }}">{{ log.get_current_status_display }}</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="no-records">No status change history found for this student.</p>
+            {% endif %}
+
+        {% elif student_id_query %} {# Only show this if a query was made but no student found #}
+            <p class="no-records">No student found with ID '{{ student_id_query }}'. Please check the ID.</p>
+        {% else %}
+            <p class="no-records">Enter a Student ID above to view their status change history.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,219 @@
+{% extends 'hostel_app/base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary: #4361ee;
+        --text-main: #2b2d42;
+        --text-muted: #8d99ae;
+    }
+
+    .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        padding: 30px;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .edit-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .form-group label {
+        font-weight: 700;
+        color: var(--text-main);
+        font-size: 0.95rem;
+    }
+
+    .form-group input, 
+    .form-group select, 
+    .form-group textarea {
+        padding: 12px 15px;
+        border: 1px solid #eee;
+        border-radius: 10px;
+        font-size: 1rem;
+        outline: none;
+        transition: 0.2s;
+    }
+
+    .form-group input:focus, 
+    .form-group select:focus, 
+    .form-group textarea:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .btn {
+        padding: 12px 25px;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: 0.2s;
+        text-decoration: none;
+        text-align: center;
+        border: none;
+        font-size: 1rem;
+    }
+
+    .btn-primary {
+        background-color: var(--primary);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background-color: #3f37c9;
+        transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+        background-color: #f8f9fa;
+        color: var(--text-main);
+        border: 1px solid #ddd;
+    }
+
+    .btn-secondary:hover {
+        background-color: #e9ecef;
+    }
+
+    .error-list {
+        color: #dc3545;
+        font-size: 0.85rem;
+        list-style: none;
+        padding: 0;
+        margin: 5px 0 0 0;
+    }
+
+    .grid-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    @media (max-width: 600px) {
+        .grid-form {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="page-header" style="text-align:center; margin-bottom: 30px;">
+        <h1 class="page-title" style="color: var(--primary); font-size: 2rem; font-weight: 800;">✏️ {{ title }}</h1>
+    </div>
+
+    <div class="container">
+        <form method="post" class="edit-form">
+            {% csrf_token %}
+            
+            <div class="grid-form">
+                <div class="form-group">
+                    <label for="{{ form.name.id_for_label }}">Full Name</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<ul class="error-list">{% for error in form.name.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.student_id.id_for_label }}">Student ID</label>
+                    {{ form.student_id }}
+                    {% if form.student_id.errors %}<ul class="error-list">{% for error in form.student_id.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.gender.id_for_label }}">Gender</label>
+                    {{ form.gender }}
+                    {% if form.gender.errors %}<ul class="error-list">{% for error in form.gender.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.dob.id_for_label }}">Date of Birth</label>
+                    {{ form.dob }}
+                    {% if form.dob.errors %}<ul class="error-list">{% for error in form.dob.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.mobile_number.id_for_label }}">Mobile Number</label>
+                    {{ form.mobile_number }}
+                    {% if form.mobile_number.errors %}<ul class="error-list">{% for error in form.mobile_number.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.blood_group.id_for_label }}">Blood Group</label>
+                    {{ form.blood_group }}
+                    {% if form.blood_group.errors %}<ul class="error-list">{% for error in form.blood_group.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.university_email.id_for_label }}">University Email</label>
+                    {{ form.university_email }}
+                    {% if form.university_email.errors %}<ul class="error-list">{% for error in form.university_email.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.personal_email.id_for_label }}">Personal Email</label>
+                    {{ form.personal_email }}
+                    {% if form.personal_email.errors %}<ul class="error-list">{% for error in form.personal_email.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.year.id_for_label }}">Year</label>
+                    {{ form.year }}
+                    {% if form.year.errors %}<ul class="error-list">{% for error in form.year.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.branch.id_for_label }}">Branch</label>
+                    {{ form.branch }}
+                    {% if form.branch.errors %}<ul class="error-list">{% for error in form.branch.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.hostel.id_for_label }}">Hostel</label>
+                    {{ form.hostel }}
+                    {% if form.hostel.errors %}<ul class="error-list">{% for error in form.hostel.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.room.id_for_label }}">Room</label>
+                    {{ form.room }}
+                    {% if form.room.errors %}<ul class="error-list">{% for error in form.room.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.parent_name.id_for_label }}">Parent Name</label>
+                    {{ form.parent_name }}
+                    {% if form.parent_name.errors %}<ul class="error-list">{% for error in form.parent_name.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.parent_mobile.id_for_label }}">Parent Mobile</label>
+                    {{ form.parent_mobile }}
+                    {% if form.parent_mobile.errors %}<ul class="error-list">{% for error in form.parent_mobile.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.address.id_for_label }}">Address</label>
+                {{ form.address }}
+                {% if form.address.errors %}<ul class="error-list">{% for error in form.address.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+
+            <div class="form-group" style="max-width: 300px;">
+                <label for="{{ form.role.id_for_label }}">Role</label>
+                {{ form.role }}
+                {% if form.role.errors %}<ul class="error-list">{% for error in form.role.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+                <a href="{% url 'student_detail_from_url' student.student_id %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

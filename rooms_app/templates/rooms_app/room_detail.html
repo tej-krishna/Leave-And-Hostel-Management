@@ -1,0 +1,371 @@
+{% extends 'hostel_app/base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+        .room-detail-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 25px;
+            position: relative;
+        }
+        .room-info-header {
+            font-size: 2em;
+            color: #007bff;
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .room-status-overview {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        .status-item {
+            padding: 10px 15px;
+            border-radius: 5px;
+            background-color: #f0f0f0;
+            color: #555;
+        }
+        .beds-occupied { color: #dc3545; }
+        .beds-available { color: #28a745; }
+        
+        .allotment-section {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid #eee;
+            /* Hidden by default, shown when editing */
+            display: none;
+        }
+        /* Style for when the allotment section is visible */
+        .allotment-section.active {
+            display: block;
+        }
+
+        .section-header {
+            font-size: 1.4em;
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 1px dashed #ddd;
+            padding-bottom: 10px;
+        }
+        .allotment-form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .allotment-form select {
+            flex-grow: 1;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 1em;
+        }
+        .allotment-form button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s;
+        }
+        .allotment-form button:hover {
+            background-color: #0056b3;
+        }
+
+        .toggle-button, .edit-room-button, .done-button { /* Combined styles for similar buttons */
+            width: 100%;
+            padding: 12px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin-top: 15px;
+            transition: background-color 0.2s;
+            text-align: center;
+            text-decoration: none;
+            display: block;
+        }
+        .toggle-button.active {
+            background-color: #17a2b8;
+        }
+        .toggle-button.disabled-state {
+            background-color: #dc3545;
+        }
+        .toggle-button:hover {
+            opacity: 0.9;
+        }
+        .edit-room-button {
+            background-color: #ffc107; /* Warning yellow for edit */
+            color: #333; /* Darker text for better contrast */
+        }
+        .edit-room-button:hover {
+             background-color: #e0a800;
+        }
+        .done-button {
+            background-color: #28a745; /* Green for done */
+        }
+        .done-button:hover {
+            background-color: #218838;
+        }
+
+
+        /* Styles for the new student table */
+        .students-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.95em;
+        }
+        .students-table th, .students-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .students-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #555;
+        }
+        .students-table tr:nth-child(even) {
+            background-color: #f8f8f8;
+        }
+        .students-table tr:hover {
+            background-color: #e9ecef;
+        }
+        .unallot-button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: background-color 0.2s;
+        }
+        .unallot-button:hover {
+            background-color: #c82333;
+        }
+        .no-students {
+            font-style: italic;
+            color: #666;
+            text-align: center;
+            padding: 15px 0;
+            font-size: 1.05em;
+        }
+        .room-disabled-message {
+            color: red;
+            font-weight: bold;
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 1.1em;
+        }
+        .back-link a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .room-detail-container {
+                padding: 15px;
+            }
+            .room-info-header {
+                font-size: 1.6em;
+            }
+            .room-status-overview {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .allotment-form {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .allotment-form button, .allotment-form select {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .back-link {
+                position: static;
+                text-align: center;
+                margin-bottom: 10px;
+            }
+            .students-table th, .students-table td {
+                padding: 8px;
+                font-size: 0.9em;
+            }
+            .unallot-button {
+                padding: 5px 8px;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="page-header" style="text-align: center;">
+        <h1 class="page-title">{{ title }}</h1>
+    </div>
+
+    <div class="room-detail-container">
+        <div class="room-info-header">Room {{ room.room_number }} (Floor {{ room.floor.floor_number }} - {{ room.floor.name|default:"Unnamed" }})</div>
+
+        <div class="room-status-overview">
+            <div class="status-item">Capacity: {{ room.capacity }}</div>
+            <div class="status-item beds-occupied">Occupied: {{ occupied_beds }}</div>
+            <div class="status-item beds-available">Available: {{ available_beds }}</div>
+        </div>
+
+        {% if room.is_disabled %}
+            <p class="room-disabled-message">This Room is Currently Disabled.</p>
+        {% endif %}
+
+        <h2 class="section-header">Current Allotments</h2>
+        {% if allotted_students %}
+            <table class="students-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Student ID</th>
+                        <th>Leave Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in allotted_students %}
+                        <tr>
+                            <td>{{ student.name }}</td>
+                            <td>{{ student.student_id }}</td>
+                            <td>
+                                {% if student.on_leave %}
+                                    <span style="color: orange; font-weight: bold;">On Leave</span>
+                                {% else %}
+                                    <span style="color: green;">Present</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="no-students">No students currently allotted to this room.</p>
+        {% endif %}
+
+        <a href="#" id="editRoomButton" class="edit-room-button">Edit Room Details</a>
+
+        <div id="editModeSection" class="allotment-section">
+            <h2 class="section-header">Allot Students</h2>
+            {% if not room.is_disabled %}
+                {% if not is_full %}
+                    <form action="{% url 'allot_student_to_room' room.pk %}" method="post" class="allotment-form">
+                        {% csrf_token %}
+                        <select name="student_id">
+                            <option value="None">Select Student to Allot</option>
+                            {% for student in unallotted_students %}
+                                <option value="{{ student.pk }}">{{ student.name }} ({{ student.student_id }})</option>
+                            {% empty %}
+                                <option value="None" disabled>No unallotted students available</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit">Allot Student</button>
+                    </form>
+                {% else %}
+                    <p style="text-align: center; color: #0056b3; font-weight: bold;">Room is Full. Cannot allot more students.</p>
+                {% endif %}
+            {% else %}
+                 <p style="text-align: center; color: #666;">Cannot allot students to a disabled room.</p>
+            {% endif %}
+
+            <h2 class="section-header">Unallot Students</h2>
+            {% if allotted_students %}
+                <table class="students-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Student ID</th>
+                            <th>Leave Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in allotted_students %}
+                            <tr>
+                                <td>{{ student.name }}</td>
+                                <td>{{ student.student_id }}</td>
+                                <td>
+                                    {% if student.on_leave %}
+                                        <span style="color: orange; font-weight: bold;">On Leave</span>
+                                    {% else %}
+                                        <span style="color: green;">Present</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form action="{% url 'unallot_student_from_room' student.pk %}" method="post" style="display:inline-block;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="unallot-button">Unallot</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="no-students">No students currently allotted to this room.</p>
+            {% endif %}
+
+            <form action="{% url 'toggle_room_status' room.pk %}" method="post">
+                {% csrf_token %}
+                <button type="submit"
+                        class="toggle-button {% if room.is_disabled %}disabled-state{% else %}active{% endif %}">
+                    {% if room.is_disabled %}Enable Room{% else %}Disable Room{% endif %}
+                </button>
+            </form>
+
+            <a href="#" id="doneButton" class="done-button">Done Editing</a>
+        </div>
+    </div>
+
+    <script>
+        const editRoomButton = document.getElementById('editRoomButton');
+        const doneButton = document.getElementById('doneButton');
+        const editModeSection = document.getElementById('editModeSection');
+
+        // Initial state: hide the edit mode section
+        editModeSection.classList.remove('active');
+        editRoomButton.style.display = 'block'; // Ensure edit button is visible
+
+        editRoomButton.addEventListener('click', function(event) {
+            event.preventDefault(); // Prevent default link behavior
+            editModeSection.classList.add('active'); // Show the edit section
+            editRoomButton.style.display = 'none'; // Hide the edit button
+        });
+
+        doneButton.addEventListener('click', function(event) {
+            event.preventDefault(); // Prevent default link behavior
+            editModeSection.classList.remove('active'); // Hide the edit section
+            editRoomButton.style.display = 'block'; // Show the edit button again
+        });
+    </script>
+{% endblock %}
