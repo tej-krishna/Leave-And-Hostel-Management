@@ -1,0 +1,67 @@
+{% extends 'hostel_app/base.html' %}
+{% load hms_extras %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}Approvals{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ stage_label }}</h1>
+        <p>Requests currently awaiting your approval as {{ user_role|cut:"_"|title }}.</p>
+    </div>
+</div>
+
+{% if pending_leaves %}
+<div class="grid" style="gap:16px;">
+    {% for leave in pending_leaves %}
+    <div class="card">
+        <div class="card-body flex justify-between gap-3" style="flex-wrap:wrap; align-items:flex-start;">
+            <div style="flex:1; min-width:220px;">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="avatar">{{ leave.student.name|initial }}</div>
+                    <div>
+                        <div class="font-semibold">{{ leave.student.name }}</div>
+                        <div class="text-xs text-muted">{{ leave.student.student_id }} &middot; {{ leave.student.hostel }} - Room {{ leave.student.room_number_display }}</div>
+                    </div>
+                </div>
+                <div class="text-sm mb-4">
+                    <span class="badge badge-info">{{ leave.get_leave_type_display }}</span>
+                    <span class="text-muted">{{ leave.out_time|date:"d M, H:i" }} &rarr; {{ leave.in_time|date:"d M, H:i" }} &middot; {{ leave.get_duration_days }} day{{ leave.get_duration_days|pluralize }}</span>
+                </div>
+                <p class="text-sm text-muted mb-4">{{ leave.reason }}</p>
+                {% with history=leave.approval_history.all %}
+                {% if history %}
+                <div class="text-xs">
+                    {% for h in history %}
+                    <div class="flex items-center gap-2" style="margin-bottom:4px;">
+                        <span class="badge badge-success" style="padding:1px 6px;">{{ h.get_action_display }}</span>
+                        <span class="text-muted">{{ h.stage|cut:"_"|title }}{% if h.actor %} by {{ h.actor.name }}{% endif %}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+            </div>
+            <form method="post" action="{% url 'process_leave_approval' leave.pk %}" style="min-width:240px; width:280px;">
+                {% csrf_token %}
+                <textarea name="comment" class="input" rows="2" placeholder="Comment (optional)" style="margin-bottom:8px;"></textarea>
+                <div class="flex gap-2">
+                    <button type="submit" name="action" value="approve" class="btn btn-success btn-block">Approve</button>
+                    <button type="submit" name="action" value="reject" class="btn btn-danger btn-block">Reject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-state-icon">{% include 'hostel_app/partials/icon.html' with name='check-circle' %}</div>
+        <h3>All caught up</h3>
+        <p>No requests are currently waiting on you.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

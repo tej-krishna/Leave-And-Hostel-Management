@@ -1,5 +1,6 @@
 # HostelManagement/hostel_app/models.py
 
+import math
 from django.db import models
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
@@ -39,10 +40,22 @@ class Student(models.Model):
     ]
 
     # New ROLE_CHOICES for different user types
+    # The multi-stage leave approval hierarchy (warden -> ... -> director)
+    # added below uses these same accounts/login: a staff member's Student
+    # record just carries one of the hierarchy roles instead of 'editor'.
+    # 'viewer'/'editor' are unchanged and keep their existing room/device
+    # management access from the earlier audit.
     ROLE_CHOICES = [
         ('student', 'Student'),
         ('viewer', 'Viewer'),
         ('editor', 'Editor'),
+        ('warden', 'Warden'),
+        ('caretaker', 'Caretaker'),
+        ('chief_warden', 'Chief Warden'),
+        ('dsw', 'DSW'),
+        ('dean', 'Dean'),
+        ('ao', 'AO Office'),
+        ('director', 'Director'),
     ]
 
     GENDER_CHOICES = [
@@ -73,7 +86,7 @@ class Student(models.Model):
     )
     # New 'role' field with a default of 'student'
     role = models.CharField(
-        max_length=10,
+        max_length=15,
         choices=ROLE_CHOICES,
         default='student', # Default role for new students
         help_text="Defines the user's access level (student, viewer, editor)."
@@ -113,7 +126,51 @@ class LeaveApplication(models.Model):
         ('leave', 'Leave'),
         ('outing', 'Outing'),
     ]
-    
+
+    # Ordered approval-chain stages, plus the post-approval departure/return
+    # stages. `status` above stays the coarse pending/approved/rejected
+    # summary that the rest of the app (overlap checks, dashboards, the
+    # eSSL ingestion in essl_app/views.py) already filters on unchanged;
+    # `current_stage` is the new fine-grained "who acts next" pointer.
+    STAGE_WARDEN = 'WARDEN'
+    STAGE_CARETAKER = 'CARETAKER'
+    STAGE_CHIEF_WARDEN = 'CHIEF_WARDEN'
+    STAGE_DSW = 'DSW'
+    STAGE_DEAN = 'DEAN'
+    STAGE_AO = 'AO'
+    STAGE_DIRECTOR = 'DIRECTOR'
+    STAGE_CARETAKER_VERIFICATION = 'CARETAKER_VERIFICATION'
+    STAGE_CLEARED_FOR_DEPARTURE = 'CLEARED_FOR_DEPARTURE'
+    STAGE_OUT = 'OUT'
+    STAGE_COMPLETED = 'COMPLETED'
+    STAGE_REJECTED = 'REJECTED'
+
+    STAGE_CHOICES = [
+        (STAGE_WARDEN, 'Pending Warden'),
+        (STAGE_CARETAKER, 'Pending Caretaker'),
+        (STAGE_CHIEF_WARDEN, 'Pending Chief Warden'),
+        (STAGE_DSW, 'Pending DSW'),
+        (STAGE_DEAN, 'Pending Dean'),
+        (STAGE_AO, 'Pending AO Office'),
+        (STAGE_DIRECTOR, 'Pending Director'),
+        (STAGE_CARETAKER_VERIFICATION, 'Awaiting ID Verification'),
+        (STAGE_CLEARED_FOR_DEPARTURE, 'Gate-Out Pending'),
+        (STAGE_OUT, 'Outside Campus'),
+        (STAGE_COMPLETED, 'Completed'),
+        (STAGE_REJECTED, 'Rejected'),
+    ]
+
+    EMAIL_NOT_REQUIRED = 'NOT_REQUIRED'
+    EMAIL_PENDING = 'PENDING'
+    EMAIL_SENT = 'SENT'
+    EMAIL_FAILED = 'FAILED'
+    EMAIL_STATUS_CHOICES = [
+        (EMAIL_NOT_REQUIRED, 'Not Required'),
+        (EMAIL_PENDING, 'Pending'),
+        (EMAIL_SENT, 'Sent'),
+        (EMAIL_FAILED, 'Failed'),
+    ]
+
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='leave_applications')
     leave_type = models.CharField(max_length=10, choices=LEAVE_TYPE_CHOICES, default='leave', help_text="Type of application: Leave or Outing.")
     reason = models.TextField(help_text="Reason for leave/outing.")
@@ -128,12 +185,38 @@ class LeaveApplication(models.Model):
         help_text="Status of the leave application (Pending, Approved, Rejected)."
     )
 
+    # --- Multi-stage approval workflow state ---
+    current_stage = models.CharField(
+        max_length=30,
+        choices=STAGE_CHOICES,
+        default=STAGE_WARDEN,
+        help_text="Which authority the request is currently waiting on, or its post-approval departure/return stage.",
+    )
+    final_approved_at = models.DateTimeField(null=True, blank=True)
+    caretaker_verified_at = models.DateTimeField(null=True, blank=True)
+    caretaker_verified_by = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='verified_departures',
+        help_text="The caretaker who confirmed the student's ID before departure.",
+    )
+    gate_out_at = models.DateTimeField(null=True, blank=True, help_text="First biometric out-punch (Gate Out or Hostel Out) recorded for this leave.")
+    gate_in_at = models.DateTimeField(null=True, blank=True, help_text="Biometric Gate-In punch recorded for this leave's return.")
+    hostel_in_at = models.DateTimeField(null=True, blank=True, help_text="Biometric Hostel-In punch that completed this leave's return.")
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    # --- Long-leave official letter (generated when the leave escalates to AO Office) ---
+    letter_pdf = models.FileField(upload_to='leave_letters/', null=True, blank=True)
+    letter_generated_at = models.DateTimeField(null=True, blank=True)
+    email_status = models.CharField(max_length=15, choices=EMAIL_STATUS_CHOICES, default=EMAIL_NOT_REQUIRED)
+    email_sent_at = models.DateTimeField(null=True, blank=True)
+    email_error = models.TextField(blank=True, null=True, help_text="Last email send error, if email_status is FAILED.")
+
     parent_coming = models.BooleanField(default=False, help_text="Is the student's own parent coming to pick them up?")
     companion = models.ForeignKey(
-        Student, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
+        Student,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='accompanied_leaves',
         help_text="The student whose parent is coming (for restricted group leave)."
     )
@@ -145,6 +228,74 @@ class LeaveApplication(models.Model):
 
     class Meta:
         ordering = ['-out_time']
+
+    def get_duration_days(self):
+        """
+        The single authoritative duration calculation, used for approval-chain
+        routing, display, the generated PDF letter, and the email. Defined as
+        the ceiling of the elapsed time in whole days, minimum 1 - e.g. a leave
+        from 1 Sep 9am to 3 Sep 6pm is 3 days, not 2, since it spans into a
+        third calendar day. This threshold choice is documented in
+        PROJECT_AUDIT/LEAVE_WORKFLOW.md because the source requirement did not
+        pin an exact inclusive/exclusive convention.
+        """
+        if not self.out_time or not self.in_time:
+            return 0
+        delta_seconds = (self.in_time - self.out_time).total_seconds()
+        if delta_seconds <= 0:
+            return 0
+        return max(1, math.ceil(delta_seconds / 86400))
+
+
+class LeaveApprovalHistory(models.Model):
+    """
+    Immutable audit trail for the leave approval/departure/return workflow.
+    One row per action - never updated or overwritten, per the workflow
+    requirement that approval history must be preserved in full.
+    """
+    ACTION_APPROVED = 'APPROVED'
+    ACTION_REJECTED = 'REJECTED'
+    ACTION_VERIFIED = 'VERIFIED'
+    ACTION_VERIFICATION_FAILED = 'VERIFICATION_FAILED'
+    ACTION_GATE_OUT = 'GATE_OUT'
+    ACTION_GATE_IN = 'GATE_IN'
+    ACTION_HOSTEL_IN = 'HOSTEL_IN'
+    ACTION_LETTER_GENERATED = 'LETTER_GENERATED'
+    ACTION_EMAIL_SENT = 'EMAIL_SENT'
+    ACTION_EMAIL_FAILED = 'EMAIL_FAILED'
+    ACTION_CHOICES = [
+        (ACTION_APPROVED, 'Approved'),
+        (ACTION_REJECTED, 'Rejected'),
+        (ACTION_VERIFIED, 'ID Verified'),
+        (ACTION_VERIFICATION_FAILED, 'ID Verification Failed'),
+        (ACTION_GATE_OUT, 'Biometric Gate-Out'),
+        (ACTION_GATE_IN, 'Biometric Gate-In'),
+        (ACTION_HOSTEL_IN, 'Biometric Hostel-In'),
+        (ACTION_LETTER_GENERATED, 'Letter Generated'),
+        (ACTION_EMAIL_SENT, 'Email Sent'),
+        (ACTION_EMAIL_FAILED, 'Email Failed'),
+    ]
+
+    leave = models.ForeignKey(LeaveApplication, on_delete=models.CASCADE, related_name='approval_history')
+    stage = models.CharField(max_length=30, help_text="The stage this action was taken at.")
+    actor = models.ForeignKey(
+        Student, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='leave_actions_taken',
+        help_text="The staff member who took this action (blank for system/biometric events).",
+    )
+    action = models.CharField(max_length=25, choices=ACTION_CHOICES)
+    comment = models.TextField(blank=True, null=True)
+    previous_status = models.CharField(max_length=30, blank=True, null=True)
+    new_status = models.CharField(max_length=30, blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp']
+        verbose_name_plural = 'Leave approval history'
+
+    def __str__(self):
+        who = self.actor.name if self.actor else 'System'
+        return f"{self.leave_id}: {who} {self.get_action_display()} at {self.stage}"
 
 
 

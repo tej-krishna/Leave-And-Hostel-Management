@@ -1,0 +1,46 @@
+{% extends 'hostel_app/base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}Departure Verification{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Departure ID Verification</h1>
+        <p>These requests have completed their full approval chain. Confirm the student's identity before they may depart - a fingerprint match alone is not sufficient authorization until this step is done.</p>
+    </div>
+</div>
+
+{% if awaiting_verification %}
+<div class="grid" style="gap:16px;">
+    {% for leave in awaiting_verification %}
+    <div class="card">
+        <div class="card-body flex justify-between gap-3" style="flex-wrap:wrap; align-items:center;">
+            <div class="flex items-center gap-3" style="flex:1; min-width:220px;">
+                <div class="avatar" style="width:44px;height:44px;font-size:1rem;">{{ leave.student.name|first|upper }}</div>
+                <div>
+                    <div class="font-semibold">{{ leave.student.name }}</div>
+                    <div class="text-xs text-muted">Hostel {{ leave.student.hostel }} - Room {{ leave.student.room_number_display }}</div>
+                    <div class="text-xs text-muted">{{ leave.get_leave_type_display }}: {{ leave.out_time|date:"d M, H:i" }} &rarr; {{ leave.in_time|date:"d M, H:i" }} ({{ leave.get_duration_days }}d)</div>
+                    <div class="text-xs text-muted">Final approval {{ leave.final_approved_at|date:"d M, H:i" }}</div>
+                </div>
+            </div>
+            <form method="post" action="{% url 'verify_student_departure' leave.pk %}" class="flex gap-2">
+                {% csrf_token %}
+                <input type="text" name="student_id" class="input" placeholder="Enter Student ID" required style="width:180px;">
+                <button type="submit" class="btn btn-primary">Verify &amp; Clear</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-state-icon">{% include 'hostel_app/partials/icon.html' with name='id-card' %}</div>
+        <h3>Nothing to verify</h3>
+        <p>No students are currently awaiting departure verification.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

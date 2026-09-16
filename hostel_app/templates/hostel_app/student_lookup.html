@@ -1,266 +1,130 @@
 {% extends 'hostel_app/base.html' %}
+{% load hms_extras %}
 
 {% block title %}{{ title }}{% endblock %}
-
-{% block extra_css %}
-<style>
-    :root {
-        --primary: #4361ee;
-        --text-main: #2b2d42;
-        --text-muted: #8d99ae;
-    }
-
-    .container {
-        max-width: 1000px;
-        margin: 0 auto;
-        background-color: #ffffff;
-        border-radius: 15px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-        padding: 30px;
-        border: 1px solid rgba(0,0,0,0.05);
-    }
-
-    .search-form {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 25px;
-        justify-content: center;
-    }
-    .search-form input[type="text"] {
-        flex-grow: 1;
-        padding: 12px 15px;
-        border: 1px solid #eee;
-        border-radius: 10px;
-        font-size: 1rem;
-        max-width: 400px;
-        outline: none;
-        transition: 0.2s;
-    }
-    .search-form input[type="text"]:focus {
-        border-color: var(--primary);
-    }
-    .search-form button {
-        padding: 10px 25px;
-        background-color: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        font-weight: 700;
-        transition: 0.2s;
-    }
-    .search-form button:hover {
-        background-color: #3f37c9;
-        transform: translateY(-2px);
-    }
-
-    .student-details {
-        margin-top: 30px;
-        border-top: 1px solid #eee;
-        padding-top: 25px;
-    }
-    .student-details p {
-        margin-bottom: 12px;
-        font-size: 1.05rem;
-        color: var(--text-main);
-    }
-    .student-details p strong {
-        color: var(--primary);
-        width: 160px;
-        display: inline-block;
-    }
-    .student-details h2 {
-        color: var(--primary);
-        font-size: 1.2rem;
-        font-weight: 800;
-        margin-top: 35px;
-        margin-bottom: 20px;
-        border-bottom: 2px solid #f0f0f0;
-        padding-bottom: 10px;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-    }
-    th, td {
-        padding: 12px 15px;
-        text-align: left;
-        border-bottom: 1px solid #f8f8f8;
-    }
-    th {
-        background-color: #f8f9fa;
-        font-weight: 700;
-        color: var(--text-muted);
-        text-transform: uppercase;
-        font-size: 0.75rem;
-    }
-    
-    .status-present { color: #28a745; font-weight: 700; }
-    .status-leave { color: #ffc107; font-weight: 700; }
-    .status-outing { color: #007bff; font-weight: 700; }
-    .status-pending { color: #ffc107; font-weight: 700; }
-    .status-approved { color: #28a745; font-weight: 700; }
-    .status-rejected { color: #dc3545; font-weight: 700; }
-
-    .action-buttons { display: flex; gap: 8px; }
-    .action-buttons button {
-        padding: 6px 12px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 0.8rem;
-        font-weight: 700;
-        transition: 0.2s;
-    }
-    .approve { background-color: #28a745; color: white; }
-    .reject { background-color: #dc3545; color: white; }
-
-    .messages {
-        list-style: none;
-        padding: 0;
-        margin-bottom: 25px;
-    }
-    .messages li {
-        padding: 12px 20px;
-        margin-bottom: 15px;
-        border-radius: 10px;
-        font-weight: 600;
-    }
-    .error { background-color: #ffeaea; color: #dc3545; }
-    .success { background-color: #e6fffa; color: #28a745; }
-</style>
-{% endblock %}
+{% block page_title %}Student Lookup{% endblock %}
 
 {% block content %}
-    <div class="page-header" style="text-align:center; margin-bottom: 30px;">
-        <h1 class="page-title" style="color: var(--primary); font-size: 2rem; font-weight: 800;">🔍 {{ title }}</h1>
+<div class="page-header">
+    <div>
+        <h1>Student Lookup</h1>
+        <p>{% if user_role == 'student' %}Your profile, leave history and current status.{% else %}Search for a student to view their profile, leave history and status.{% endif %}</p>
     </div>
+</div>
 
-    <div class="container">
-        {% if messages %}
-            <ul class="messages">
-                {% for message in messages %}
-                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
+{% if user_role != 'student' %}
+<form method="get" class="card mb-4">
+    <div class="card-body flex gap-2">
+        <input type="text" name="query" class="input" placeholder="Search by Student ID or Name..." value="{{ query|default:'' }}" required>
+        <button type="submit" class="btn btn-primary">{% include 'hostel_app/partials/icon.html' with name='search' %} Search</button>
+    </div>
+</form>
+{% endif %}
 
-        {% if user_role != 'student' %}
-        <form method="get" class="search-form">
-            <input type="text" name="query" placeholder="Search by Student ID or Name..." value="{{ query|default:'' }}" required>
-            <button type="submit">Search</button>
-        </form>
-        {% endif %}
-
-        {% if student %}
-            <div class="student-details">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 style="margin: 0; border: none; padding: 0;">Student Information</h2>
-                    {% if user_role == 'editor' %}
-                        <a href="{% url 'edit_student' student.pk %}" class="btn btn-primary" style="text-decoration: none; padding: 8px 15px; background: var(--primary); color: white; border-radius: 8px; font-weight: 700; font-size: 0.9rem;">✏️ Edit Details</a>
-                    {% endif %}
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-
-                    <div>
-                        <p><strong>Name:</strong> {{ student.name }}</p>
-                        <p><strong>Student ID:</strong> {{ student.student_id }}</p>
-                        <p><strong>Year:</strong> {{ student.get_year_display }}</p>
-                        <p><strong>Branch:</strong> {{ student.get_branch_display }}</p>
-                        <p><strong>Gender:</strong> {{ student.get_gender_display|default:"-" }}</p>
-                        <p><strong>Date of Birth:</strong> {{ student.dob|date:"d M Y"|default:"-" }}</p>
-                        <p><strong>Blood Group:</strong> {{ student.blood_group|default:"-" }}</p>
-                    </div>
-                    <div>
-                        <p><strong>Mobile:</strong> {{ student.mobile_number }}</p>
-                        <p><strong>Univ Email:</strong> {{ student.auto_university_email }}</p>
-                        <p><strong>Personal Email:</strong> {{ student.personal_email|default:"-" }}</p>
-                        <p><strong>Parent Name:</strong> {{ student.parent_name|default:"-" }}</p>
-                        <p><strong>Parent Mobile:</strong> {{ student.parent_mobile|default:"-" }}</p>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 15px;">
-                    <p><strong>Address:</strong> {{ student.address|default:"-" }}</p>
-                    <p><strong>Hostel Details:</strong> {{ student.hostel }} - Floor {{ student.floor_number_display }} - Room {{ student.room_number_display }}</p>
-                    <p><strong>Current Status:</strong> <span class="status-{{ student.status }}" style="padding: 4px 10px; border-radius: 6px; background: rgba(0,0,0,0.03);">{{ student.get_status_display }}</span></p>
-                </div>
-
-                <h2>Leave Applications</h2>
-                {% if leave_applications %}
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>Reason</th>
-                                <th>Out Time</th>
-                                <th>In Time</th>
-                                <th>Status</th>
-                                {% if user_role == 'editor' %} 
-                                    <th>Actions</th>
-                                {% endif %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for app in leave_applications %}
-                                <tr>
-                                    <td><strong>{{ app.leave_type|title }}</strong></td>
-                                    <td>{{ app.reason }}</td>
-                                    <td>{{ app.out_time|date:"M d, H:i" }}</td>
-                                    <td>{{ app.in_time|date:"M d, H:i" }}</td>
-                                    <td class="status-{{ app.status }}">{{ app.get_status_display }}</td>
-                                    {% if user_role == 'editor' %}
-                                        <td class="action-buttons">
-                                            {% if app.status == 'pending' %}
-                                                <form action="{% url 'update_leave_status' app.pk %}" method="post" style="display: inline;">
-                                                    {% csrf_token %}
-                                                    <button type="submit" name="action" value="approve" class="approve">Approve</button>
-                                                </form>
-                                                <form action="{% url 'update_leave_status' app.pk %}" method="post" style="display: inline;">
-                                                    {% csrf_token %}
-                                                    <button type="submit" name="action" value="reject" class="reject">Reject</button>
-                                                </form>
-                                            {% else %}
-                                                <span style="color: #ccc;">Done</span>
-                                            {% endif %}
-                                        </td>
-                                    {% endif %}
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p style="color: var(--text-muted);">No leave applications found.</p>
-                {% endif %}
-
-                <h2>Movement History</h2>
-                {% if status_logs %}
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Status</th>
-                                <th>Timestamp</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for log in status_logs %}
-                                <tr>
-                                    <td class="status-{{ log.current_status }}">{{ log.get_current_status_display }}</td>
-                                    <td>{{ log.change_timestamp|date:"d M Y, H:i" }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <p style="color: var(--text-muted);">No movement history available.</p>
-                {% endif %}
+{% if student %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h3>Student Information</h3>
+        {% if user_role == 'editor' %}<a href="{% url 'edit_student' student.pk %}" class="btn btn-secondary btn-sm">{% include 'hostel_app/partials/icon.html' with name='edit' %} Edit</a>{% endif %}
+    </div>
+    <div class="card-body">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="avatar" style="width:52px; height:52px; font-size:1.2rem;">{{ student.name|initial }}</div>
+            <div>
+                <div class="font-semibold" style="font-size:var(--text-lg);">{{ student.name }}</div>
+                <div class="text-sm text-muted">{{ student.student_id }} &middot; {{ student.get_year_display }} {{ student.get_branch_display }}</div>
             </div>
-        {% elif query and not student %}
-            <p style="text-align: center; margin-top: 30px; color: #dc3545; font-weight: 700;">No student found.</p>
-        {% else %}
-            <p style="text-align: center; margin-top: 30px; color: var(--text-muted);">Enter a Student ID or Name to begin.</p>
-        {% endif %}
+            <span class="badge {{ student.status|badge_class }}" style="margin-left:auto;">{{ student.get_status_display }}</span>
+        </div>
+
+        <div class="grid grid-cols-3">
+            <div><div class="text-xs text-muted">Mobile</div><div class="text-sm">{{ student.mobile_number }}</div></div>
+            <div><div class="text-xs text-muted">University Email</div><div class="text-sm">{{ student.auto_university_email }}</div></div>
+            <div><div class="text-xs text-muted">Personal Email</div><div class="text-sm">{{ student.personal_email|default:"-" }}</div></div>
+            <div><div class="text-xs text-muted">Gender</div><div class="text-sm">{{ student.get_gender_display|default:"-" }}</div></div>
+            <div><div class="text-xs text-muted">Date of Birth</div><div class="text-sm">{{ student.dob|date:"d M Y"|default:"-" }}</div></div>
+            <div><div class="text-xs text-muted">Blood Group</div><div class="text-sm">{{ student.blood_group|default:"-" }}</div></div>
+            <div><div class="text-xs text-muted">Parent Name</div><div class="text-sm">{{ student.parent_name|default:"-" }}</div></div>
+            <div><div class="text-xs text-muted">Parent Mobile</div><div class="text-sm">{{ student.parent_mobile|default:"-" }}</div></div>
+            <div><div class="text-xs text-muted">Hostel</div><div class="text-sm">{{ student.hostel }} &middot; Floor {{ student.floor_number_display }} &middot; Room {{ student.room_number_display }}</div></div>
+        </div>
+        {% if student.address %}<div class="mt-4"><div class="text-xs text-muted">Address</div><div class="text-sm">{{ student.address }}</div></div>{% endif %}
     </div>
+</div>
+
+{% if latest_leave %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h3>Current / Most Recent Leave</h3>
+        <span class="badge {{ latest_leave.status|badge_class }}">{{ latest_leave.get_status_display }}</span>
+    </div>
+    <div class="card-body">
+        <p class="text-sm text-muted mb-4">
+            {{ latest_leave.get_leave_type_display }} &middot; {{ latest_leave.out_time|date:"d M, H:i" }} &rarr; {{ latest_leave.in_time|date:"d M, H:i" }}
+            ({{ latest_leave.get_duration_days }} day{{ latest_leave.get_duration_days|pluralize }}) &mdash; {{ latest_leave.reason }}
+        </p>
+        {% include 'hostel_app/partials/approval_timeline.html' with steps=latest_leave_timeline %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header"><h3>Leave Applications</h3></div>
+    {% if leave_applications %}
+    <div class="table-wrap" style="border:none; border-radius:0;">
+        <table class="data-table responsive-cards">
+            <thead><tr><th>Type</th><th>Reason</th><th>Out</th><th>In</th><th>Duration</th><th>Status</th><th>Stage</th></tr></thead>
+            <tbody>
+                {% for app in leave_applications %}
+                <tr>
+                    <td data-label="Type">{{ app.get_leave_type_display }}</td>
+                    <td data-label="Reason" class="text-muted">{{ app.reason|truncatechars:40 }}</td>
+                    <td data-label="Out">{{ app.out_time|date:"M d, H:i" }}</td>
+                    <td data-label="In">{{ app.in_time|date:"M d, H:i" }}</td>
+                    <td data-label="Duration">{{ app.get_duration_days }}d</td>
+                    <td data-label="Status"><span class="badge {{ app.status|badge_class }}">{{ app.get_status_display }}</span></td>
+                    <td data-label="Stage"><span class="badge {{ app.current_stage|badge_class }}">{{ app.get_current_stage_display }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><h3>No leave applications</h3><p>This student hasn't submitted any leave requests yet.</p></div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-header"><h3>Movement History</h3></div>
+    {% if status_logs %}
+    <div class="table-wrap" style="border:none; border-radius:0;">
+        <table class="data-table responsive-cards">
+            <thead><tr><th>Status</th><th>Timestamp</th><th>Source</th></tr></thead>
+            <tbody>
+                {% for log in status_logs %}
+                <tr>
+                    <td data-label="Status"><span class="badge {{ log.current_status|badge_class }}">{{ log.get_current_status_display }}</span></td>
+                    <td data-label="Timestamp">{{ log.change_timestamp|date:"d M Y, H:i" }}</td>
+                    <td data-label="Source" class="text-muted">{{ log.get_log_type_display }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><h3>No movement history</h3><p>Nothing recorded yet.</p></div>
+    {% endif %}
+</div>
+
+{% elif query and not student %}
+<div class="card"><div class="empty-state">
+    <div class="empty-state-icon">{% include 'hostel_app/partials/icon.html' with name='search' %}</div>
+    <h3>No student found</h3><p>Try a different ID or name.</p>
+</div></div>
+{% else %}
+<div class="card"><div class="empty-state">
+    <div class="empty-state-icon">{% include 'hostel_app/partials/icon.html' with name='search' %}</div>
+    <h3>Search for a student</h3><p>Enter a Student ID or Name to begin.</p>
+</div></div>
+{% endif %}
 {% endblock %}

@@ -1,0 +1,33 @@
+{% comment %}
+Reusable approval/departure timeline. Renders `steps`, a list of dicts as
+returned by hostel_app.workflow.build_approval_timeline() - never compute
+this sequence in JS; the backend decides what's done/current/locked.
+Usage: {% include 'hostel_app/partials/approval_timeline.html' with steps=timeline_steps %}
+{% endcomment %}
+<ul class="timeline">
+    {% for step in steps %}
+    <li class="timeline-item is-{{ step.state }}">
+        <div class="timeline-marker">
+            {% if step.state == 'done' %}&#10003;
+            {% elif step.state == 'rejected' %}&times;
+            {% elif step.state == 'current' %}&bull;
+            {% else %}&#8226;{% endif %}
+        </div>
+        <div class="timeline-content">
+            <div class="timeline-title">{{ step.label }}</div>
+            <div class="timeline-meta">
+                {% if step.state == 'done' %}
+                    Approved{% if step.actor %} by {{ step.actor.name }}{% endif %}{% if step.timestamp %} &middot; {{ step.timestamp|date:"d M, H:i" }}{% endif %}
+                {% elif step.state == 'rejected' %}
+                    Rejected{% if step.actor %} by {{ step.actor.name }}{% endif %}{% if step.timestamp %} &middot; {{ step.timestamp|date:"d M, H:i" }}{% endif %}
+                {% elif step.state == 'current' %}
+                    Awaiting action
+                {% else %}
+                    Not yet reached
+                {% endif %}
+            </div>
+            {% if step.comment %}<div class="timeline-comment">&ldquo;{{ step.comment }}&rdquo;</div>{% endif %}
+        </div>
+    </li>
+    {% endfor %}
+</ul>

@@ -1,364 +1,69 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Update Student Status</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f0f2f5;
-            color: #333;
-        }
-        h1 {
-            color: #0056b3;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 2.2em;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            padding: 30px;
-            position: relative; /* For logout link positioning */
-        }
-        /* Base Header Styles (copied for consistency) */
-        .dynamic-header {
-            background: transparent;
-            padding: 15px 20px;
-            box-shadow: none;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            border-bottom: none;
-            margin-bottom: 20px;
-        }
+{% extends 'hostel_app/base.html' %}
+{% load hms_extras %}
 
-        .dynamic-header nav ul {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-        }
+{% block title %}Update Student Status{% endblock %}
+{% block page_title %}Update Student Status{% endblock %}
 
-        .dynamic-header nav ul li {
-            margin: 0;
-        }
+{% block content %}
+<div class="page-header">
+    <div><h1>Update Student Status</h1><p>Manually set a student's current status.</p></div>
+</div>
 
-        .dynamic-header .header-link {
-            color: #ffffff;
-            text-decoration: none;
-            font-size: 1.1em;
-            font-weight: 500;
-            padding: 10px 18px;
-            border-radius: 6px;
-            transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            white-space: nowrap;
-            background-color: rgba(0, 123, 255, 0.7);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
-        .dynamic-header .header-link:hover {
-            color: #ffffff;
-            background-color: #007bff;
-            transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 10px 25px rgba(0, 123, 255, 0.8),
-                                0 0 0 4px rgba(255,255,255,0.2);
-        }
-
-        .dynamic-header .header-link.active {
-            background-color: #0056b3;
-            color: #ffffff;
-            box-shadow: 0 3px 15px rgba(0,0,0,0.4);
-            transform: translateY(0) scale(1.0);
-            cursor: default;
-            pointer-events: none;
-            font-weight: 600;
-        }
-        /* End Header Styles */
-
-        .search-filter-form {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-            justify-content: center;
-            align-items: flex-end;
-            flex-wrap: wrap;
-        }
-        .search-filter-form div {
-            flex: 1;
-            min-width: 150px;
-            max-width: 250px;
-        }
-        .search-filter-form label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #555;
-        }
-        .search-filter-form input[type="text"],
-        .search-filter-form select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
-            box-sizing: border-box;
-        }
-        .search-filter-form button {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1em;
-            transition: background-color 0.2s ease;
-        }
-        .search-filter-form button:hover {
-            background-color: #0056b3;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #eee;
-            padding: 12px 15px;
-            text-align: left;
-        }
-        th {
-            background-color: #f8f8f8;
-            font-weight: bold;
-            color: #555;
-            text-transform: uppercase;
-            font-size: 0.9em;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        tr:hover {
-            background-color: #f1f1f1;
-        }
-        .action-buttons button {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9em;
-            margin-right: 5px;
-            transition: background-color 0.2s ease;
-        }
-        .action-buttons button.present { background-color: #28a745; color: white; }
-        .action-buttons button.present:hover { background-color: #218838; }
-        .action-buttons button.leave { background-color: #ffc107; color: #333; }
-        .action-buttons button.leave:hover { background-color: #e0a800; }
-        .action-buttons button.outing { background-color: #007bff; color: white; }
-        .action-buttons button.outing:hover { background-color: #0056b3; }
-
-        .status-present { color: #28a745; font-weight: bold; }
-        .status-leave { color: #ffc107; font-weight: bold; }
-        .status-outing { color: #007bff; font-weight: bold; }
-
-        .messages {
-            list-style: none;
-            padding: 0;
-            margin-bottom: 20px;
-        }
-        .messages li {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 0.95em;
-        }
-        .messages .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .messages .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .messages .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-
-        .logout-link-top {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            font-size: 1.0em;
-            color: #555;
-        }
-        .logout-link-top a {
-            color: #dc3545;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .logout-link-top a:hover {
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="logout-link-top">
-        {% if request.session.student_name %}
-            Logged in as: <strong>{{ request.session.student_name }}</strong> ({{ user_role|capfirst }}) &nbsp;
-            <a href="{% url 'logout' %}">[Logout]</a>
-        {% else %}
-            <a href="{% url 'login' %}">Login</a>
-        {% endif %}
-    </div>
-
-    <header class="dynamic-header">
-        <nav>
-            <ul>
-                {# Dashboard Link - visible to viewer/editor #}
-                {% if user_role == 'viewer' or user_role == 'editor' %}
-                    <li>
-                        <a href="{% url 'dashboard' %}" class="header-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                            Dashboard
-                        </a>
-                    </li>
-                {% endif %}
-
-                {# Total Students Link - visible to viewer/editor #}
-                {% if user_role == 'viewer' or user_role == 'editor' %}
-                    <li>
-                        <a href="{% url 'total_students_list' %}" class="header-link {% if request.resolver_match.url_name == 'total_students_list' or request.resolver_match.url_name == 'present_students_list' or request.resolver_match.url_name == 'leave_students_list' or request.resolver_match.url_name == 'outing_students_list' %}active{% endif %}">
-                            Total Students
-                        </a>
-                    </li>
-                {% endif %}
-
-                {# Room Data Link - visible to viewer/editor #}
-                {% if user_role == 'viewer' or user_role == 'editor' %}
-                    <li>
-                        <a href="{% url 'room_selection_default' %}" class="header-link {% if request.resolver_match.url_name == 'room_selection' or request.resolver_match.url_name == 'room_detail' %}active{% endif %}">
-                            Room Data
-                        </a>
-                    </li>
-                {% endif %}
-
-                {# Leave Approval Link - visible to viewer/editor #}
-                {% if user_role == 'viewer' or user_role == 'editor' %}
-                    <li>
-                        <a href="{% url 'leave_management' %}" class="header-link {% if request.resolver_match.url_name == 'leave_management' %}active{% endif %}">
-                            Leave Approval
-                        </a>
-                    </li>
-                {% endif %}
-
-                {# Student Lookup Link - visible to all roles, but student has restricted view #}
-                {% if user_role == 'viewer' or user_role == 'editor' or user_role == 'student' %}
-                    <li>
-                        <a href="{% url 'student_lookup' %}" class="header-link {% if request.resolver_match.url_name == 'student_lookup' %}active{% endif %}">
-                            Student Lookup
-                        </a>
-                    </li>
-                {% endif %}
-
-                {# Apply Leave Link - only for students #}
-                {% if user_role == 'student' %}
-                    <li>
-                        <a href="{% url 'apply_leave' %}" class="header-link {% if request.resolver_match.url_name == 'apply_leave' %}active{% endif %}">
-                            Apply Leave
-                        </a>
-                    </li>
-                {% endif %}
-            </ul>
-        </nav>
-    </header>
-
-    <div class="container">
-        <h1>Update Student Status</h1>
-
-        {% if messages %}
-            <ul class="messages">
-                {% for message in messages %}
-                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
-
-        <form method="get" class="search-filter-form">
-            <div>
-                <label for="search_id">Search by Student ID:</label>
-                <input type="text" id="search_id" name="search_id" value="{{ search_id|default:'' }}" placeholder="e.g., STD001">
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="flex gap-3" style="flex-wrap:wrap; align-items:flex-end;">
+            <div class="field" style="margin-bottom:0; min-width:180px;">
+                <label class="field-label">Student ID</label>
+                <input type="text" class="input" name="search_id" value="{{ search_id|default:'' }}" placeholder="e.g. N210190">
             </div>
-            <div>
-                <label for="search_year">Filter by Year:</label>
-                <select id="search_year" name="search_year">
+            <div class="field" style="margin-bottom:0; min-width:160px;">
+                <label class="field-label">Year</label>
+                <select class="select" name="search_year">
                     <option value="">All Years</option>
-                    {% for year_choice in YEAR_CHOICES %}
-                        <option value="{{ year_choice.0 }}" {% if search_year == year_choice.0 %}selected{% endif %}>{{ year_choice.1 }}</option>
+                    {% for yc in YEAR_CHOICES %}
+                    <option value="{{ yc.0 }}" {% if search_year == yc.0 %}selected{% endif %}>{{ yc.1 }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div>
-                <button type="submit">Apply Filters</button>
-            </div>
-            {% if search_id or search_year %}
-                <div>
-                    <button type="button" onclick="window.location.href='{% url 'status_updater' %}'">Reset Filters</button>
-                </div>
-            {% endif %}
+            <button type="submit" class="btn btn-primary">Apply</button>
+            {% if search_id or search_year %}<a href="{% url 'status_updater' %}" class="btn btn-ghost">Reset</a>{% endif %}
         </form>
-
-        {% if students %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Student ID</th>
-                        <th>Year</th>
-                        <th>Branch</th>
-                        <th>Room</th>
-                        <th>Current Status</th>
-                        {% if user_role == 'editor' %} {# Only show Actions column for Editors #}
-                            <th>Actions</th>
-                        {% endif %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for student in students %}
-                        <tr>
-                            <td><a href="{% url 'student_detail_from_url' student.student_id %}">{{ student.name }}</a></td>
-                            <td>{{ student.student_id }}</td>
-                            <td>{{ student.year }}</td>
-                            <td>{{ student.branch }}</td>
-                            <td>{{ student.room_number_display }}</td>
-                            <td class="status-{{ student.status }}">{{ student.get_status_display }}</td>{{ student.name }}
-                            {% if user_role == 'editor' %} {# Only show action buttons for Editors #}
-                                <td class="action-buttons">
-                                    <div class="action-btn-group">
-                                        <form action="{% url 'update_student_status' student.pk %}" method="post" style="display: inline;">
-                                            {% csrf_token %}
-                                            <button type="submit" name="status" value="present" class="present" {% if student.status == 'present' %}disabled{% endif %}>Present</button>
-                                            <button type="submit" name="status" value="leave" class="leave" {% if student.status == 'leave' %}disabled{% endif %}>Leave</button>
-                                            <button type="submit" name="status" value="outing" class="outing" {% if student.status == 'outing' %}disabled{% endif %}>Outing</button>
-                                        </form>
-                                        <a href="{% url 'edit_student' student.pk %}" style="text-decoration: none; padding: 6px 10px; background: #6c757d; color: white; border-radius: 5px; font-size: 0.85rem; font-weight: bold; margin-left: 5px;">Edit</a>
-                                    </div>
-                                </td>
-                            {% endif %}
-
-                        </tr>
-                    {% empty %}
-                        <tr>
-                            <td colspan="{% if user_role == 'editor' %}7{% else %}6{% endif %}" style="text-align: center;">No students found matching your criteria.</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p style="text-align: center; margin-top: 30px; color: #666;">No students available.</p>
-        {% endif %}
-
     </div>
-</body>
-</html>
+</div>
+
+<div class="table-wrap">
+    <table class="data-table responsive-cards">
+        <thead>
+            <tr>
+                <th>Name</th><th>ID</th><th>Year</th><th>Branch</th><th>Room</th><th>Status</th>
+                {% if user_role == 'editor' %}<th>Actions</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr>
+                <td data-label="Name"><a href="{% url 'student_detail_from_url' student.student_id %}">{{ student.name }}</a></td>
+                <td data-label="ID" class="text-muted">{{ student.student_id }}</td>
+                <td data-label="Year">{{ student.year }}</td>
+                <td data-label="Branch">{{ student.branch }}</td>
+                <td data-label="Room">{{ student.room_number_display }}</td>
+                <td data-label="Status"><span class="badge {{ student.status|badge_class }}">{{ student.get_status_display }}</span></td>
+                {% if user_role == 'editor' %}
+                <td data-label="Actions">
+                    <form action="{% url 'update_student_status' student.pk %}" method="post" class="flex gap-2" data-no-loading-state="true">
+                        {% csrf_token %}
+                        <button type="submit" name="status" value="present" class="btn btn-sm btn-success" {% if student.status == 'present' %}disabled{% endif %}>Present</button>
+                        <button type="submit" name="status" value="leave" class="btn btn-sm btn-danger" {% if student.status == 'leave' %}disabled{% endif %}>Leave</button>
+                        <button type="submit" name="status" value="outing" class="btn btn-sm" style="background:var(--status-warning-bg); color:var(--status-warning);" {% if student.status == 'outing' %}disabled{% endif %}>Outing</button>
+                        <a href="{% url 'edit_student' student.pk %}" class="btn btn-sm btn-ghost">Edit</a>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+            {% empty %}
+            <tr><td colspan="7"><div class="empty-state"><h3>No students found</h3><p>Try adjusting your filters.</p></div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -158,3 +158,28 @@ WEBAUTHN_RP_ID = os.environ.get('WEBAUTHN_RP_ID', '10.147.165.181')
 WEBAUTHN_RP_NAME = os.environ.get('WEBAUTHN_RP_NAME', 'HMS Biometrics')
 WEBAUTHN_ORIGIN = os.environ.get('WEBAUTHN_ORIGIN', f'http://{WEBAUTHN_RP_ID}:8000')
 
+# --- Leave Workflow: institution identity + long-leave escalation ---
+# Used on the generated leave letter (hostel_app/pdf.py) and nowhere else -
+# a placeholder default is used deliberately rather than guessing the real
+# institution name from other data in the repo.
+INSTITUTION_NAME = os.environ.get('INSTITUTION_NAME', 'Hostel Management Institution')
+
+# Recipients for the very-long-leave (30+ day) escalation letter/email.
+# Deliberately read from the environment, never hardcoded, so no real staff
+# email address ends up committed to source control.
+AO_EMAIL = os.environ.get('AO_EMAIL', '')
+DIRECTOR_EMAIL = os.environ.get('DIRECTOR_EMAIL', '')
+
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@hostel.local')
+
+# Email backend: defaults to printing to the console in dev so the leave
+# workflow never silently depends on a real mail server being configured.
+# Set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend (+ the
+# EMAIL_HOST* variables below) in .env for real delivery.
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '25'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'False').lower() == 'true'
+

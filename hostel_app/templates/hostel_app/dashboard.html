@@ -1,610 +1,240 @@
 {% extends 'hostel_app/base.html' %}
+{% load hms_extras %}
 
-{% block title %}Management Dashboard{% endblock %}
-
-{% block extra_css %}
-<style>
-    :root {
-        --primary: #4361ee;
-        --secondary: #3f37c9;
-        --success: #4cc9f0;
-        --danger: #f72585;
-        --warning: #ff9f1c;
-        --info: #4895ef;
-        --card-bg: #ffffff;
-        --text-main: #2b2d42;
-        --text-muted: #8d99ae;
-    }
-
-    .dashboard-wrapper {
-        padding: 5px 0;
-        max-width: 1400px;
-        margin: 0 auto;
-    }
-
-    .page-header {
-        margin-bottom: 10px;
-        text-align: center;
-    }
-
-    .page-title { margin: 0; font-size: 1.4rem; font-weight: 800; color: var(--primary); }
-
-    /* Summary Cards: 4 in a Row */
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 15px;
-        margin-bottom: 15px;
-    }
-
-    .stat-card {
-        background: var(--card-bg);
-        border-radius: 12px;
-        padding: 12px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        text-decoration: none;
-        color: inherit;
-        border: 1px solid rgba(0,0,0,0.02);
-        transition: transform 0.2s;
-    }
-
-    .stat-card:hover { transform: translateY(-3px); }
-
-    .stat-icon {
-        font-size: 1.4rem;
-        margin-bottom: 5px;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .icon-total { background: rgba(67, 97, 238, 0.1); color: var(--primary); }
-    .icon-present { background: rgba(76, 201, 240, 0.1); color: var(--success); }
-    .icon-leave { background: rgba(247, 37, 133, 0.1); color: var(--danger); }
-    .icon-outing { background: rgba(255, 159, 28, 0.1); color: var(--warning); }
-
-    .stat-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
-    .stat-value { font-size: 1.6rem; font-weight: 800; color: var(--text-main); line-height: 1; }
-
-    /* Charts Matrix: 2x2 */
-    .charts-container {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
-        margin-bottom: 15px;
-    }
-
-    .chart-box {
-        background: var(--card-bg);
-        border-radius: 12px;
-        padding: 8px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        border: 1px solid rgba(0,0,0,0.02);
-        height: 180px; /* Uniform compact height */
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-
-    .chart-header {
-        font-size: 0.8rem;
-        font-weight: 700;
-        margin-bottom: 5px;
-        color: var(--text-main);
-        text-align: center;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
-    .canvas-wrapper {
-        position: relative;
-        flex: 1;
-        width: 100%;
-        min-height: 0; /* Critical for flex overflow */
-    }
-
-    /* Actions row */
-    .actions-row {
-        display: flex;
-        justify-content: center;
-        gap: 15px;
-        flex-wrap: wrap;
-    }
-
-    .btn-action {
-        padding: 10px 20px;
-        border-radius: 10px;
-        font-weight: 600;
-        text-decoration: none;
-        font-size: 0.9rem;
-        transition: 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .btn-solid { background: var(--primary); color: white; }
-    .btn-outline { border: 2px solid var(--primary); color: var(--primary); }
-    .btn-solid:hover { background: var(--secondary); transform: scale(1.05); }
-    .btn-outline:hover { background: var(--primary); color: white; }
-
-    @media (max-width: 992px) {
-        .summary-grid { grid-template-columns: repeat(2, 1fr); }
-        .charts-container { grid-template-columns: 1fr; }
-        .chart-box { height: 300px; }
-    }
-
-    @media (max-width: 480px) {
-        .summary-grid { grid-template-columns: 1fr; }
-    }
-
-    /* Modal Styles */
-    .modal-overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        z-index: 2000;
-        backdrop-filter: blur(4px);
-        align-items: center;
-        justify-content: center;
-    }
-
-    .modal-content {
-        background: white;
-        padding: 25px;
-        border-radius: 15px;
-        width: 90%;
-        max-width: 800px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        position: relative;
-        animation: modalSlideUp 0.3s ease-out;
-    }
-
-    @keyframes modalSlideUp {
-        from { transform: translateY(30px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-    }
-
-    .modal-close {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        font-size: 1.5rem;
-        cursor: pointer;
-        color: var(--text-muted);
-        transition: 0.2s;
-    }
-
-    .modal-close:hover { color: var(--danger); }
-
-    .modal-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-    }
-
-    .modal-table th, .modal-table td {
-        padding: 12px;
-        text-align: left;
-        border-bottom: 1px solid #eee;
-    }
-
-    .modal-table th {
-        background: #f8f9fa;
-        font-weight: 700;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        color: var(--text-muted);
-    }
-
-    .status-badge {
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    /* Wide Modal for Status Updater */
-    .modal-wide {
-        max-width: 95% !important;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-
-    .status-filter-form {
-        display: flex;
-        gap: 15px;
-        margin-bottom: 25px;
-        justify-content: center;
-        align-items: flex-end;
-        flex-wrap: wrap;
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 10px;
-    }
-
-    .status-filter-form div {
-        flex: 1;
-        min-width: 150px;
-        max-width: 250px;
-    }
-
-    .status-filter-form label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-        color: var(--text-muted);
-    }
-
-    .status-filter-form input, .status-filter-form select {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-    }
-
-    .status-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .status-table th, .status-table td {
-        padding: 12px;
-        border-bottom: 1px solid #eee;
-        text-align: left;
-    }
-
-    .action-btn-group {
-        display: flex;
-        gap: 5px;
-    }
-
-    .btn-status {
-        padding: 6px 10px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: white;
-    }
-
-    .btn-present { background: var(--success); }
-    .btn-leave { background: var(--danger); }
-    .btn-outing { background: var(--warning); color: #333; }
-    .btn-status:disabled { opacity: 0.5; cursor: not-allowed; }
-</style>
-{% endblock %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="dashboard-wrapper">
-    <div class="page-header">
-        <h1 class="page-title">Hostel Analytics Dashboard</h1>
+<div class="page-header">
+    <div>
+        <h1>Good {% now "H" as hr %}{% if hr|add:0 < 12 %}morning{% elif hr|add:0 < 17 %}afternoon{% else %}evening{% endif %}, {{ request.session.student_name|default:"there" }}</h1>
+        <p>Here's what's happening across the hostel today.</p>
     </div>
-
-    {% if user_role == 'viewer' or user_role == 'editor' %}
-        <!-- Top Stats Row -->
-        <div class="summary-grid">
-            <a href="{% url 'total_students_list' %}" class="stat-card">
-                <div class="stat-icon icon-total">👥</div>
-                <span class="stat-label">Total</span>
-                <span class="stat-value">{{ total_students }}</span>
-            </a>
-            <a href="{% url 'present_students_list' %}" class="stat-card">
-                <div class="stat-icon icon-present">🏠</div>
-                <span class="stat-label">Present</span>
-                <span class="stat-value">{{ present_count }}</span>
-            </a>
-            <a href="{% url 'leave_students_list' %}" class="stat-card">
-                <div class="stat-icon icon-leave">✈️</div>
-                <span class="stat-label">Leave</span>
-                <span class="stat-value">{{ leave_count }}</span>
-            </a>
-            <a href="{% url 'outing_students_list' %}" class="stat-card">
-                <div class="stat-icon icon-outing">🚶</div>
-                <span class="stat-label">Outing</span>
-                <span class="stat-value">{{ outing_count }}</span>
-            </a>
-        </div>
-
-        <!-- Charts Grid -->
-        <div class="charts-container">
-            <div class="chart-box">
-                <div class="chart-header">📊 Occupancy Distribution</div>
-                <div class="canvas-wrapper">
-                    <canvas id="statusDoughnut"></canvas>
-                </div>
-            </div>
-
-            <div class="chart-box">
-                <div class="chart-header">📈 Leave Trend (30 Days)</div>
-                <div class="canvas-wrapper">
-                    <canvas id="leaveTrendLine"></canvas>
-                </div>
-            </div>
-
-            <div class="chart-box">
-                <div class="chart-header">🏢 Hostel Analysis</div>
-                <div class="canvas-wrapper">
-                    <canvas id="hostelBar"></canvas>
-                </div>
-            </div>
-
-            <div class="chart-box">
-                <div class="chart-header">📅 Year-wise Distribution</div>
-                <div class="canvas-wrapper">
-                    <canvas id="yearBar"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quick Actions Row -->
-        <div class="actions-row">
-            {% if user_role == 'editor' %}
-                <button id="openStatusModal" class="btn-action btn-solid">⚡ Update Status</button>
-            {% endif %}
-            <button id="openYearModal" class="btn-action btn-outline">📅 Yearwise Table</button>
-            <a href="{% url 'biometric_track' %}" class="btn-action btn-outline">📡 Biometric Tracker</a>
-        </div>
-
-        <!-- Yearwise Modal -->
-        <div id="yearModal" class="modal-overlay">
-            <div class="modal-content">
-                <span class="modal-close" id="closeYearModal">&times;</span>
-                <h2 style="margin-top: 0; color: var(--primary);">📅 Year-wise Student Data</h2>
-                <div style="overflow-x: auto;">
-                    <table class="modal-table">
-                        <thead>
-                            <tr>
-                                <th>Year</th>
-                                <th>Total</th>
-                                <th>Present</th>
-                                <th>Leave</th>
-                                <th>Outing</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for y in year_data %}
-                            <tr>
-                                <td style="font-weight: 800;">{{ y.year }}</td>
-                                <td>{{ y.total }}</td>
-                                <td style="color: var(--success); font-weight: 700;">{{ y.present }}</td>
-                                <td style="color: var(--danger); font-weight: 700;">{{ y.leave }}</td>
-                                <td style="color: var(--warning); font-weight: 700;">{{ y.outing }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Status Updater Modal (Direct HTML) -->
-        <div id="statusModal" class="modal-overlay">
-            <div class="modal-content modal-wide">
-                <span class="modal-close" id="closeStatusModal">&times;</span>
-                <h2 style="margin-top: 0; color: var(--primary);">⚡ Update Student Status</h2>
-                
-                <!-- Filters -->
-                <form method="get" class="status-filter-form">
-                    <div>
-                        <label>Student ID</label>
-                        <input type="text" name="search_id" value="{{ search_id|default:'' }}" placeholder="e.g., STD001">
-                    </div>
-                    <div>
-                        <label>Year</label>
-                        <select name="search_year">
-                            <option value="">All Years</option>
-                            {% for year_choice in YEAR_CHOICES %}
-                                <option value="{{ year_choice.0 }}" {% if search_year == year_choice.0 %}selected{% endif %}>{{ year_choice.1 }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <button type="submit" class="btn-action btn-solid" style="padding: 10px 20px;">Apply</button>
-                    </div>
-                    {% if search_id or search_year %}
-                        <div>
-                            <a href="{% url 'dashboard' %}" class="btn-action btn-outline" style="padding: 10px 20px; text-decoration: none; display: inline-block;">Reset</a>
-                        </div>
-                    {% endif %}
-                </form>
-
-                <!-- Students Table -->
-                <div style="overflow-x: auto; margin-top: 20px;">
-                    <table class="status-table">
-                        <thead>
-                            <tr style="background: #f8f9fa;">
-                                <th>Name</th>
-                                <th>ID</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for student in students %}
-                            <tr>
-                                <td style="font-weight: 600;">{{ student.name }}</td>
-                                <td style="font-size: 0.85rem; color: var(--text-muted);">{{ student.student_id }}</td>
-                                <td><span class="status-badge status-{{ student.status }}">{{ student.get_status_display }}</span></td>
-                                <td>
-                                    <div class="action-btn-group">
-                                        <form action="{% url 'update_student_status' student.pk %}" method="post" style="display: inline;">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            <button type="submit" name="status" value="present" class="btn-status btn-present" {% if student.status == 'present' %}disabled{% endif %}>P</button>
-                                            <button type="submit" name="status" value="leave" class="btn-status btn-leave" {% if student.status == 'leave' %}disabled{% endif %}>L</button>
-                                            <button type="submit" name="status" value="outing" class="btn-status btn-outing" {% if student.status == 'outing' %}disabled{% endif %}>O</button>
-                                        </form>
-                                        <a href="{% url 'edit_student' student.pk %}" style="text-decoration: none; padding: 4px 8px; background: #6c757d; color: white; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-left: 4px;">Edit</a>
-                                    </div>
-                                </td>
-                            </tr>
-
-                            {% empty %}
-                            <tr><td colspan="4" style="text-align: center; padding: 30px;">No students found.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    {% else %}
-        <div class="chart-box" style="text-align: center; height: auto; padding: 50px;">
-            <div style="font-size: 3.5rem; margin-bottom: 20px;">👋</div>
-            <h2 style="color: var(--primary);">Welcome, {{ request.session.student_name }}</h2>
-            <p style="color: var(--text-muted); margin-bottom: 30px;">Access your student services below.</p>
-            <div class="actions-row">
-                <a href="{% url 'apply_leave' %}" class="btn-action btn-solid">📝 Apply for Leave</a>
-                <a href="{% url 'student_lookup' %}" class="btn-action btn-outline">🔍 My Status</a>
-            </div>
-        </div>
-    {% endif %}
+    <div class="page-header-actions">
+        {% if user_role == 'editor' %}
+        <button class="btn btn-primary" data-modal-open="statusModal">
+            {% include 'hostel_app/partials/icon.html' with name='edit' %} Update Status
+        </button>
+        {% endif %}
+        <button class="btn btn-secondary" data-modal-open="yearModal">
+            {% include 'hostel_app/partials/icon.html' with name='calendar' %} Year-wise Data
+        </button>
+        <a href="{% url 'biometric_track' %}" class="btn btn-secondary">
+            {% include 'hostel_app/partials/icon.html' with name='fingerprint' %} Biometric Track
+        </a>
+    </div>
 </div>
+
+<div class="grid grid-cols-4 mb-4">
+    <a href="{% url 'total_students_list' %}" class="stat-card" style="text-decoration:none;">
+        <div class="stat-card-top">
+            <span class="stat-card-label">Total Students</span>
+            <span class="stat-card-icon">{% include 'hostel_app/partials/icon.html' with name='users' %}</span>
+        </div>
+        <div class="stat-card-value">{{ total_students }}</div>
+        <div class="stat-card-foot">Resident students on record</div>
+    </a>
+    <a href="{% url 'present_students_list' %}" class="stat-card" style="text-decoration:none;">
+        <div class="stat-card-top">
+            <span class="stat-card-label">Present</span>
+            <span class="stat-card-icon" style="background:var(--status-success-bg); color:var(--status-success);">{% include 'hostel_app/partials/icon.html' with name='door' %}</span>
+        </div>
+        <div class="stat-card-value">{{ present_count }}</div>
+        <div class="stat-card-foot">In the hostel right now</div>
+    </a>
+    <a href="{% url 'leave_students_list' %}" class="stat-card" style="text-decoration:none;">
+        <div class="stat-card-top">
+            <span class="stat-card-label">On Leave</span>
+            <span class="stat-card-icon" style="background:var(--status-info-bg); color:var(--status-info);">{% include 'hostel_app/partials/icon.html' with name='calendar' %}</span>
+        </div>
+        <div class="stat-card-value">{{ leave_count }}</div>
+        <div class="stat-card-foot">Away on approved leave</div>
+    </a>
+    <a href="{% url 'outing_students_list' %}" class="stat-card" style="text-decoration:none;">
+        <div class="stat-card-top">
+            <span class="stat-card-label">On Outing</span>
+            <span class="stat-card-icon" style="background:var(--status-warning-bg); color:var(--status-warning);">{% include 'hostel_app/partials/icon.html' with name='trend-up' %}</span>
+        </div>
+        <div class="stat-card-value">{{ outing_count }}</div>
+        <div class="stat-card-foot">Out for the day</div>
+    </a>
+</div>
+
+<div class="grid grid-cols-2 mb-4">
+    <div class="card">
+        <div class="card-header"><h3>Occupancy Distribution</h3></div>
+        <div class="card-body" style="height:260px;"><canvas id="statusDoughnut"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h3>Leave Trend (30 Days)</h3></div>
+        <div class="card-body" style="height:260px;"><canvas id="leaveTrendLine"></canvas></div>
+    </div>
+</div>
+
+<div class="grid grid-cols-2">
+    <div class="card">
+        <div class="card-header"><h3>Hostel-wise Analysis</h3></div>
+        <div class="card-body" style="height:240px;"><canvas id="hostelBar"></canvas></div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h3>Year-wise Distribution</h3></div>
+        <div class="card-body" style="height:240px;"><canvas id="yearBar"></canvas></div>
+    </div>
+</div>
+
+<!-- Year-wise data modal -->
+<div id="yearModal" class="modal-overlay">
+    <div class="modal" style="max-width:640px;">
+        <div class="modal-header"><h3>Year-wise Student Data</h3></div>
+        <div class="modal-body">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead><tr><th>Year</th><th>Total</th><th>Present</th><th>Leave</th><th>Outing</th></tr></thead>
+                    <tbody>
+                        {% for y in year_data %}
+                        <tr>
+                            <td class="font-semibold">{{ y.year }}</td>
+                            <td>{{ y.total }}</td>
+                            <td>{{ y.present }}</td>
+                            <td>{{ y.leave }}</td>
+                            <td>{{ y.outing }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-muted">No data yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary" data-modal-close>Close</button></div>
+    </div>
+</div>
+
+<!-- Status updater modal -->
+{% if user_role == 'editor' %}
+<div id="statusModal" class="modal-overlay">
+    <div class="modal" style="max-width:820px;">
+        <div class="modal-header"><h3>Update Student Status</h3></div>
+        <div class="modal-body">
+            <form method="get" class="flex gap-3" style="flex-wrap:wrap; align-items:flex-end;">
+                <div class="field" style="margin-bottom:0; min-width:160px;">
+                    <label class="field-label">Student ID</label>
+                    <input class="input" type="text" name="search_id" value="{{ search_id|default:'' }}" placeholder="e.g. N210190">
+                </div>
+                <div class="field" style="margin-bottom:0; min-width:160px;">
+                    <label class="field-label">Year</label>
+                    <select class="select" name="search_year">
+                        <option value="">All Years</option>
+                        {% for yc in YEAR_CHOICES %}
+                        <option value="{{ yc.0 }}" {% if search_year == yc.0 %}selected{% endif %}>{{ yc.1 }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Apply</button>
+                {% if search_id or search_year %}<a href="{% url 'dashboard' %}" class="btn btn-ghost">Reset</a>{% endif %}
+            </form>
+
+            <div class="table-wrap mt-4" style="max-height:360px; overflow-y:auto;">
+                <table class="data-table">
+                    <thead><tr><th>Name</th><th>ID</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td class="font-semibold">{{ student.name }}</td>
+                            <td class="text-muted">{{ student.student_id }}</td>
+                            <td><span class="badge {{ student.status|badge_class }}">{{ student.get_status_display }}</span></td>
+                            <td>
+                                <form action="{% url 'update_student_status' student.pk %}" method="post" class="flex gap-2" data-no-loading-state="true">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <button type="submit" name="status" value="present" class="btn btn-sm btn-success" {% if student.status == 'present' %}disabled{% endif %}>Present</button>
+                                    <button type="submit" name="status" value="leave" class="btn btn-sm btn-danger" {% if student.status == 'leave' %}disabled{% endif %}>Leave</button>
+                                    <button type="submit" name="status" value="outing" class="btn btn-sm" style="background:var(--status-warning-bg); color:var(--status-warning);" {% if student.status == 'outing' %}disabled{% endif %}>Outing</button>
+                                    <a href="{% url 'edit_student' student.pk %}" class="btn btn-sm btn-ghost">Edit</a>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-muted">No students found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-secondary" data-modal-close>Close</button></div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const colors = {
-            present: '#4cc9f0',
-            leave: '#f72585',
-            outing: '#ff9f1c',
-            primary: '#4361ee'
-        };
+document.addEventListener('DOMContentLoaded', function () {
+    var charts = [];
 
-        const commonOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } }
-        };
+    function build() {
+        charts.forEach(function (c) { c.destroy(); });
+        charts = [];
+        var c = window.HMSChartColors();
+        var common = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false, labels: { color: c.text } } },
+            scales: {} };
 
-        // 1. Status Doughnut
-        new Chart(document.getElementById('statusDoughnut'), {
+        charts.push(new Chart(document.getElementById('statusDoughnut'), {
             type: 'doughnut',
             data: {
                 labels: ['Present', 'Leave', 'Outing'],
-                datasets: [{
-                    data: [{{ present_count }}, {{ leave_count }}, {{ outing_count }}],
-                    backgroundColor: [colors.present, colors.leave, colors.outing],
-                    borderWidth: 0
-                }]
+                datasets: [{ data: [{{ present_count }}, {{ leave_count }}, {{ outing_count }}], backgroundColor: [c.success, c.info, c.warning], borderWidth: 0 }]
             },
-            options: { 
-                ...commonOptions, 
-                cutout: '60%',
-                plugins: { 
-                    legend: { 
-                        display: true, 
-                        position: 'bottom', 
-                        labels: { 
-                            boxWidth: 8, 
-                            padding: 5,
-                            font: { size: 9 }
-                        } 
-                    } 
-                } 
-            }
-        });
+            options: { responsive: true, maintainAspectRatio: false, cutout: '65%',
+                plugins: { legend: { display: true, position: 'bottom', labels: { color: c.text, boxWidth: 8, padding: 12, font: { size: 11 } } } } }
+        }));
 
-        // 2. Leave Trends Line
-        new Chart(document.getElementById('leaveTrendLine'), {
+        charts.push(new Chart(document.getElementById('leaveTrendLine'), {
             type: 'line',
             data: {
                 labels: [{% for t in leave_trends %}'{{ t.date|date:"d/m" }}',{% endfor %}],
-                datasets: [{
-                    data: [{% for t in leave_trends %}{{ t.count }},{% endfor %}],
-                    borderColor: colors.leave,
-                    backgroundColor: 'rgba(247, 37, 133, 0.05)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 1
-                }]
+                datasets: [{ data: [{% for t in leave_trends %}{{ t.count }},{% endfor %}], borderColor: c.info, backgroundColor: c.info + '22', fill: true, tension: 0.3, pointRadius: 2 }]
             },
-            options: { 
-                ...commonOptions, 
-                scales: { 
-                    y: { display: true, beginAtZero: true, ticks: { font: { size: 8 }, stepSize: 1 } }, 
-                    x: { ticks: { font: { size: 8 }, maxRotation: 0 } } 
-                } 
-            }
-        });
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { color: c.muted, stepSize: 1 }, grid: { color: c.grid } },
+                          x: { ticks: { color: c.muted, maxRotation: 0 }, grid: { display: false } } } }
+        }));
 
-        // 3. Hostel-wise Bar
-        new Chart(document.getElementById('hostelBar'), {
+        charts.push(new Chart(document.getElementById('hostelBar'), {
             type: 'bar',
             data: {
                 labels: [{% for h in hostel_data %}'{{ h.hostel }}',{% endfor %}],
                 datasets: [
-                    { label: 'P', data: [{% for h in hostel_data %}{{ h.present }},{% endfor %}], backgroundColor: colors.present },
-                    { label: 'L', data: [{% for h in hostel_data %}{{ h.leave }},{% endfor %}], backgroundColor: colors.leave },
-                    { label: 'O', data: [{% for h in hostel_data %}{{ h.outing }},{% endfor %}], backgroundColor: colors.outing }
+                    { label: 'Present', data: [{% for h in hostel_data %}{{ h.present }},{% endfor %}], backgroundColor: c.success },
+                    { label: 'Leave', data: [{% for h in hostel_data %}{{ h.leave }},{% endfor %}], backgroundColor: c.info },
+                    { label: 'Outing', data: [{% for h in hostel_data %}{{ h.outing }},{% endfor %}], backgroundColor: c.warning }
                 ]
             },
-            options: { 
-                ...commonOptions, 
-                scales: { 
-                    x: { stacked: true, ticks: { font: { size: 9 } } }, 
-                    y: { stacked: true, ticks: { font: { size: 9 } } } 
-                } 
-            }
-        });
+            options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: true, position: 'bottom', labels: { color: c.text, boxWidth: 8, font: { size: 10 } } } },
+                scales: { x: { stacked: true, ticks: { color: c.muted }, grid: { display: false } }, y: { stacked: true, ticks: { color: c.muted }, grid: { color: c.grid } } } }
+        }));
 
-        // 4. Year-wise Bar
-        new Chart(document.getElementById('yearBar'), {
+        charts.push(new Chart(document.getElementById('yearBar'), {
             type: 'bar',
             data: {
                 labels: [{% for y in year_data %}'{{ y.year }}',{% endfor %}],
-                datasets: [{
-                    data: [{% for y in year_data %}{{ y.total }},{% endfor %}],
-                    backgroundColor: colors.primary,
-                    borderRadius: 3
-                }]
+                datasets: [{ data: [{% for y in year_data %}{{ y.total }},{% endfor %}], backgroundColor: c.primary, borderRadius: 4 }]
             },
-            options: { 
-                ...commonOptions,
-                scales: { 
-                    y: { ticks: { font: { size: 8 } } }, 
-                    x: { ticks: { font: { size: 9 } } } 
-                }
-            }
-        });
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { y: { ticks: { color: c.muted }, grid: { color: c.grid } }, x: { ticks: { color: c.muted }, grid: { display: false } } } }
+        }));
+    }
 
-        // Modal Logic
-        const yearModal = document.getElementById('yearModal');
-        const openBtn = document.getElementById('openYearModal');
-        const closeBtn = document.getElementById('closeYearModal');
-        if (openBtn) openBtn.addEventListener('click', () => yearModal.style.display = 'flex');
-        if (closeBtn) closeBtn.addEventListener('click', () => yearModal.style.display = 'none');
+    build();
+    document.addEventListener('hms:themechange', build);
 
-        const statusModal = document.getElementById('statusModal');
-        const openStatusBtn = document.getElementById('openStatusModal');
-        const closeStatusBtn = document.getElementById('closeStatusModal');
-        if (openStatusBtn) openStatusBtn.addEventListener('click', () => statusModal.style.display = 'flex');
-        if (closeStatusBtn) closeStatusBtn.addEventListener('click', () => statusModal.style.display = 'none');
-
-        window.addEventListener('click', (e) => {
-            if (e.target === yearModal) yearModal.style.display = 'none';
-            if (e.target === statusModal) statusModal.style.display = 'none';
-        });
-
-        // Check URL Params
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('search_id') || urlParams.has('search_year')) {
-            statusModal.style.display = 'flex';
-        }
-    });
+    // Open the status-updater modal automatically if the URL carries filter params.
+    var params = new URLSearchParams(window.location.search);
+    if (params.has('search_id') || params.has('search_year')) {
+        window.HMSModal.open('statusModal');
+    }
+});
 </script>
 {% endblock %}
