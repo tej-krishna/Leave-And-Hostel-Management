@@ -1,367 +1,141 @@
 {% extends 'hostel_app/base.html' %}
+{% load hms_extras %}
 
 {% block title %}{{ title }}{% endblock %}
-
-{% block extra_css %}
-    <style>
-        :root {
-            --primary: #4361ee;
-            --secondary: #3f37c9;
-            --success: #4cc9f0;
-            --danger: #f72585;
-            --warning: #ff9f1c;
-            --card-bg: #ffffff;
-            --text-main: #2b2d42;
-            --text-muted: #8d99ae;
-            --border: rgba(0,0,0,0.05);
-        }
-        
-        .main { max-width: 1400px; margin: 0 auto; padding: 10px 0; }
-        
-        .page-header { margin-bottom: 20px; text-align: center; }
-        .page-title { margin: 0; font-size: 1.6rem; font-weight: 800; color: var(--primary); }
-        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
-
-        /* Status Cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        .stat-card {
-            background: var(--card-bg);
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            border: 1px solid var(--border);
-        }
-        .stat-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            flex-shrink: 0;
-        }
-        .icon-green  { background: rgba(76, 201, 240, 0.1); color: var(--success); }
-        .icon-yellow { background: rgba(255, 159, 28, 0.1); color: var(--warning); }
-        .icon-blue   { background: rgba(67, 97, 238, 0.1); color: var(--primary); }
-        
-        .stat-info { display: flex; flex-direction: column; }
-        .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
-        .stat-value { font-size: 1.8rem; font-weight: 800; color: var(--text-main); }
-
-        /* Filters Bar */
-        .filters-bar {
-            background: var(--card-bg);
-            padding: 15px 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            margin-bottom: 25px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            align-items: center;
-            border: 1px solid var(--border);
-        }
-        .filters-bar input, .filters-bar select {
-            padding: 10px 15px;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            outline: none;
-            transition: 0.2s;
-            min-width: 180px;
-        }
-        .filters-bar input:focus, .filters-bar select:focus { border-color: var(--primary); }
-        .filters-bar button {
-            background: var(--primary);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .filters-bar button:hover { background: var(--secondary); transform: translateY(-1px); }
-        .filters-bar a.reset {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.85rem;
-            margin-left: 10px;
-        }
-        .filters-bar a.reset:hover { color: var(--danger); }
-        
-        .btn-action {
-            padding: 10px 18px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            border: none;
-            text-decoration: none;
-        }
-        .btn-solid { background: var(--primary); color: white; }
-        .btn-solid:hover { background: var(--secondary); transform: translateY(-1px); }
-        .btn-outline { background: white; border: 1.5px solid #eee; color: var(--text-muted); }
-        .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
-
-        /* Table Container */
-        .table-wrap {
-            background: var(--card-bg);
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-            border: 1px solid var(--border);
-            overflow: hidden;
-        }
-        .table-header {
-            padding: 20px;
-            border-bottom: 1px solid #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .table-header h2 { font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
-        .table-header .count { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
-
-        table { width: 100%; border-collapse: collapse; }
-        thead th {
-            background: #f8f9fa;
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            padding: 15px 20px;
-            text-align: left;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        tbody tr { border-bottom: 1px solid #f8f9fa; transition: 0.2s; }
-        tbody tr:hover { background: #fafafa; }
-        td { padding: 15px 20px; font-size: 0.9rem; vertical-align: middle; color: var(--text-main); }
-
-        .student-name { font-weight: 700; color: var(--primary); text-decoration: none; }
-        .student-name:hover { text-decoration: underline; }
-        .student-id { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
-
-        /* Badges */
-        .badge {
-            padding: 5px 12px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .b-present { background: rgba(76, 201, 240, 0.1); color: var(--success); }
-        .b-leave   { background: rgba(247, 37, 133, 0.1); color: var(--danger); }
-        .b-outing  { background: rgba(255, 159, 28, 0.1); color: var(--warning); }
-        .b-default { background: #f0f0f0; color: var(--text-muted); }
-
-        .punch-type {
-            font-weight: 700;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-        }
-
-        @media (max-width: 992px) {
-            .stats-grid { grid-template-columns: 1fr; }
-            .filters-bar { flex-direction: column; align-items: stretch; }
-        }
-    </style>
-{% endblock %}
+{% block page_title %}Biometric Track{% endblock %}
 
 {% block content %}
-<div class="main">
-    <div class="page-header">
-        <h1 class="page-title">🛂 Biometric Movement Tracker</h1>
-        <p class="subtitle">Real-time log of all biometric punches from hostel & main gate devices.</p>
-    </div>
-
-    <!-- Status Summary -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-icon icon-blue">🏠</div>
-            <div class="stat-info">
-                <div class="stat-label">Currently Present</div>
-                <div class="stat-value">{{ present_count }}</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon icon-yellow">🚶</div>
-            <div class="stat-info">
-                <div class="stat-label">On Outing</div>
-                <div class="stat-value">{{ outing_count }}</div>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon icon-green">✈️</div>
-            <div class="stat-info">
-                <div class="stat-label">On Leave</div>
-                <div class="stat-value">{{ leave_count }}</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filters Bar -->
-    <form class="filters-bar" method="get">
-        <input type="text" name="q" placeholder="Search students or devices…" value="{{ query }}">
-        <select name="punch">
-            <option value="">All Punch Types</option>
-            <option value="0" {% if punch_filter == '0' %}selected{% endif %}>Gate In</option>
-            <option value="1" {% if punch_filter == '1' %}selected{% endif %}>Gate Out</option>
-            <option value="2" {% if punch_filter == '2' %}selected{% endif %}>Hostel Out</option>
-            <option value="3" {% if punch_filter == '3' %}selected{% endif %}>Hostel In</option>
-        </select>
-        <button type="submit" class="btn-action btn-solid">Filter</button>
-        {% if query or punch_filter %}
-            <a href="{% url 'biometric_track' %}" class="btn-action btn-outline" style="text-decoration: none;">✕ Clear</a>
-        {% endif %}
-        <a href="{% url 'device_config' %}" class="btn-action btn-outline" style="margin-left: auto; text-decoration: none;">⚙️ Devices</a>
-    </form>
-
-
-    <!-- Logs Table -->
-    <div class="table-wrap">
-        <div class="table-header">
-            <h2>Biometric Punch Log</h2>
-            <span class="count">Showing {{ enriched_logs|length }} record(s)</span>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Student</th>
-                    <th>Device & User ID</th>
-                    <th>Punch Type</th>
-                    <th>Current Status</th>
-                    <th>Timestamp</th>
-                </tr            <tbody>
-                {% for entry in enriched_logs %}
-                <tr>
-                    <td style="color:var(--text-muted);font-size:0.8rem;">{{ forloop.counter }}</td>
-                    <td>
-                        {% if entry.student %}
-                            <div class="student-cell">
-                                <a href="{% url 'student_detail_from_url' entry.student.student_id %}" class="student-name">
-                                    {{ entry.student.name }}
-                                </a>
-                                <span class="student-id">{{ entry.student.student_id }} &bull; {{ entry.student.year }}yr {{ entry.student.branch }}</span>
-                            </div>
-                        {% else %}
-                            <span class="unknown">Unknown (ID: {{ entry.log.user_id }})</span>
-                        {% endif %}
-                    </td>
-                    <td style="color:var(--text-muted); font-size: 0.8rem;">
-                        <div style="font-weight: 700; color: var(--text-main);">{{ entry.device_name }}</div>
-                        <div style="font-size: 0.7rem;">SN: {{ entry.log.sn }}</div>
-                    </td>
-                    <td>
-                        {% if entry.log.punch_state == '0' %}
-                            <span class="badge b-present"><span class="punch-type">Gate In</span></span>
-                        {% elif entry.log.punch_state == '1' %}
-                            <span class="badge b-leave"><span class="punch-type">Gate Out</span></span>
-                        {% elif entry.log.punch_state == '2' %}
-                            <span class="badge b-outing"><span class="punch-type">Hostel Out</span></span>
-                        {% elif entry.log.punch_state == '3' %}
-                            <span class="badge b-present" style="background: rgba(67, 97, 238, 0.1); color: var(--primary);"><span class="punch-type">Hostel In</span></span>
-                        {% else %}
-                            <span class="badge b-default">{{ entry.log.punch_state }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if entry.student %}
-                            {% if entry.student.status == 'present' %}
-                                <span class="badge b-present">Present</span>
-                            {% elif entry.student.status == 'leave' %}
-                                <span class="badge b-leave">On Leave</span>
-                            {% elif entry.student.status == 'outing' %}
-                                <span class="badge b-outing">Outing</span>
-                            {% else %}
-                                <span class="badge b-default">{{ entry.student.get_status_display }}</span>
-                            {% endif %}
-                        {% else %}
-                            <span class="badge b-default">—</span>
-                        {% endif %}
-                    </td>
-                    <td class="timestamp">{{ entry.log.timestamp|date:"d M, H:i" }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6">
-                        <div class="empty-state">
-                            <span>📭</span>
-                            No biometric records found.
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="page-header">
+    <div><h1>Biometric Movement Tracker</h1><p>Real-time log of biometric punches from hostel and gate devices.</p></div>
+    <div class="page-header-actions">
+        <a href="{% url 'device_config' %}" class="btn btn-secondary">{% include 'hostel_app/partials/icon.html' with name='settings' %} Devices</a>
     </div>
 </div>
 
+<div class="grid grid-cols-3 mb-4">
+    <div class="stat-card">
+        <div class="stat-card-top"><span class="stat-card-label">Present</span><span class="stat-card-icon" style="background:var(--status-success-bg); color:var(--status-success);">{% include 'hostel_app/partials/icon.html' with name='door' %}</span></div>
+        <div class="stat-card-value">{{ present_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-top"><span class="stat-card-label">On Outing</span><span class="stat-card-icon" style="background:var(--status-warning-bg); color:var(--status-warning);">{% include 'hostel_app/partials/icon.html' with name='trend-up' %}</span></div>
+        <div class="stat-card-value">{{ outing_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-top"><span class="stat-card-label">On Leave</span><span class="stat-card-icon" style="background:var(--status-info-bg); color:var(--status-info);">{% include 'hostel_app/partials/icon.html' with name='calendar' %}</span></div>
+        <div class="stat-card-value">{{ leave_count }}</div>
+    </div>
+</div>
+
+{% if movement_data %}
+<div class="card mb-4">
+    <div class="card-header"><h3>Live Movement Tracker</h3><span class="card-header-sub">{{ movement_data|length }} student{{ movement_data|length|pluralize }} on an active departure today</span></div>
+    <div class="card-body" style="display:flex; flex-direction:column; gap:16px;">
+        {% for m in movement_data %}
+        <div class="flex items-center gap-3" style="flex-wrap:wrap; border-bottom:1px solid var(--border-subtle); padding-bottom:12px;">
+            <div style="min-width:180px;">
+                <div class="font-semibold text-sm">{{ m.student.name }}</div>
+                <div class="text-xs text-muted">{{ m.student.student_id }} &middot; {{ m.leave.get_leave_type_display }}</div>
+            </div>
+            <div class="flex items-center gap-2 text-xs" style="flex-wrap:wrap;">
+                <span class="badge {% if m.passed_h_out %}badge-success{% else %}badge-neutral{% endif %}">Hostel-Out {% if m.passed_h_out %}{{ m.passed_h_out|date:"H:i" }}{% else %}pending{% endif %}</span>
+                <span class="badge {% if m.passed_g_out %}badge-success{% else %}badge-neutral{% endif %}">Gate-Out {% if m.passed_g_out %}{{ m.passed_g_out|date:"H:i" }}{% else %}pending{% endif %}</span>
+                <span class="badge {% if m.passed_g_in %}badge-success{% else %}badge-neutral{% endif %}">Gate-In {% if m.passed_g_in %}{{ m.passed_g_in|date:"H:i" }}{% else %}pending{% endif %}</span>
+                <span class="badge {% if m.passed_h_in %}badge-success{% else %}badge-neutral{% endif %}">Hostel-In {% if m.passed_h_in %}{{ m.passed_h_in|date:"H:i" }}{% else %}pending{% endif %}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="flex gap-3" style="flex-wrap:wrap;">
+            <input type="text" name="q" class="input" style="max-width:280px;" placeholder="Search students or devices..." value="{{ query }}">
+            <select name="punch" class="select" style="max-width:200px;">
+                <option value="">All Punch Types</option>
+                <option value="0" {% if punch_filter == '0' %}selected{% endif %}>Gate In</option>
+                <option value="1" {% if punch_filter == '1' %}selected{% endif %}>Gate Out</option>
+                <option value="2" {% if punch_filter == '2' %}selected{% endif %}>Hostel Out</option>
+                <option value="3" {% if punch_filter == '3' %}selected{% endif %}>Hostel In</option>
+            </select>
+            <button type="submit" class="btn btn-primary">{% include 'hostel_app/partials/icon.html' with name='filter' %} Filter</button>
+            {% if query or punch_filter %}<a href="{% url 'biometric_track' %}" class="btn btn-ghost">Clear</a>{% endif %}
+        </form>
+    </div>
+</div>
+
+<div class="table-wrap">
+    <div class="card-header"><h3>Punch Log</h3><span class="card-header-sub">Showing {{ enriched_logs|length }} record(s) &middot; live-updating</span></div>
+    <table class="data-table responsive-cards">
+        <thead>
+            <tr><th>Student</th><th>Device</th><th>Punch Type</th><th>Status</th><th>Time</th></tr>
+        </thead>
+        <tbody id="logsTableBody">
+            {% for entry in enriched_logs %}
+            <tr>
+                <td data-label="Student">
+                    {% if entry.student %}
+                    <a href="{% url 'student_detail_from_url' entry.student.student_id %}">{{ entry.student.name }}</a>
+                    <div class="text-xs text-muted">{{ entry.student.student_id }} &middot; {{ entry.student.year }} {{ entry.student.branch }}</div>
+                    {% else %}
+                    <span class="text-muted">Unknown ({{ entry.log.user_id }})</span>
+                    {% endif %}
+                </td>
+                <td data-label="Device">{{ entry.device_name }}</td>
+                <td data-label="Punch"><span class="badge badge-neutral">{{ entry.log.get_punch_state_display }}</span></td>
+                <td data-label="Status">{% if entry.student %}<span class="badge {{ entry.student.status|badge_class }}">{{ entry.student.get_status_display }}</span>{% else %}&mdash;{% endif %}</td>
+                <td data-label="Time" class="text-muted">{{ entry.log.timestamp|date:"d M, H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5"><div class="empty-state"><h3>No biometric records</h3><p>Nothing has synced from a device yet.</p></div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+    var tbody = document.getElementById('logsTableBody');
+    if (!tbody) return;
+
+    function badgeClassFor(value) {
+        var map = { present: 'badge-success', approved: 'badge-success', completed: 'badge-success',
+            leave: 'badge-info', outing: 'badge-info', out: 'badge-info',
+            pending: 'badge-warning', rejected: 'badge-danger' };
+        return map[String(value).toLowerCase()] || 'badge-neutral';
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
     async function updateLogs() {
         try {
             const response = await fetch('{% url "api_biometric_logs" %}');
             const data = await response.json();
-            
-            // 1. Update Logs Table
-            const logTbody = document.querySelector('.table-wrap:last-child tbody');
-            if (data.logs && data.logs.length > 0) {
-                let logHtml = '';
-                data.logs.forEach((entry, index) => {
-                    const punchClass = entry.punch_code === '0' ? 'b-present' : 
-                                     entry.punch_code === '1' ? 'b-leave' :
-                                     entry.punch_code === '2' ? 'b-outing' : 
-                                     entry.punch_code === '3' ? 'b-present' : 'b-default';
-                    
-                    const statusClass = `s-${entry.status}`;
-
-                    logHtml += `
-                    <tr>
-                        <td style="color:var(--text-muted);font-size:0.8rem;">${index + 1}</td>
-                        <td>
-                            <div class="student-cell">
-                                <span class="student-name">${entry.student_name}</span>
-                                <span class="student-id">${entry.student_id}</span>
-                            </div>
-                        </td>
-                        <td style="color:var(--text-muted); font-size: 0.8rem;">
-                            <div style="font-weight: 700; color: var(--text-main);">${entry.device_name}</div>
-                            <div style="font-size: 0.7rem;">ID: ${entry.student_id}</div>
-                        </td>
-                        <td>
-                            <span class="badge ${punchClass}"><span class="punch-type">${entry.punch_type}</span></span>
-                        </td>
-                        <td>
-                            <span class="status-badge ${statusClass}">${entry.status}</span>
-                        </td>
-                        <td class="timestamp">${entry.timestamp}</td>
-                    </tr>`;
-                });
-                logTbody.innerHTML = logHtml;
-            }
-
+            if (!data.logs) return;
+            tbody.innerHTML = data.logs.map(function (entry) {
+                return '<tr>' +
+                    '<td data-label="Student"><div class="font-semibold text-sm">' + escapeHtml(entry.student_name) + '</div>' +
+                    '<div class="text-xs text-muted">' + escapeHtml(entry.student_id) + '</div></td>' +
+                    '<td data-label="Device">' + escapeHtml(entry.device_name) + '</td>' +
+                    '<td data-label="Punch"><span class="badge badge-neutral">' + escapeHtml(entry.punch_type) + '</span></td>' +
+                    '<td data-label="Status"><span class="badge ' + badgeClassFor(entry.status) + '">' + escapeHtml(entry.status) + '</span></td>' +
+                    '<td data-label="Time" class="text-muted">' + escapeHtml(entry.timestamp) + '</td>' +
+                    '</tr>';
+            }).join('') || tbody.innerHTML;
         } catch (error) {
-            console.error('Failed to update logs:', error);
+            console.error('Failed to refresh biometric logs:', error);
         }
     }
 
-    // Update every 5 seconds
     setInterval(updateLogs, 5000);
+});
 </script>
 {% endblock %}

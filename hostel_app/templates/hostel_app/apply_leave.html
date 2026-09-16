@@ -1,247 +1,175 @@
 {% extends 'hostel_app/base.html' %}
+{% load hms_extras %}
 
 {% block title %}{{ title }}{% endblock %}
-
-{% block extra_css %}
-<style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f0f2f5;
-            color: #333;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            padding: 30px;
-            position: relative;
-        }
-        h1 {
-            color: #007bff;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 2em;
-        }
-        .form-group {
-            margin-bottom: 18px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #555;
-        }
-        .form-group input,
-        .form-group textarea,
-        .form-group select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 1em;
-            box-sizing: border-box;
-        }
-        .form-group textarea {
-            resize: vertical;
-        }
-        button[type="submit"] {
-            width: 100%;
-            padding: 12px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 1.1em;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-            margin-top: 10px;
-        }
-        button[type="submit"]:hover {
-            background-color: #218838;
-        }
-        .messages {
-            list-style: none;
-            padding: 0;
-            margin-bottom: 20px;
-        }
-        .messages li {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            font-weight: bold;
-            font-size: 0.95em;
-        }
-        .messages .error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        .messages .success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .safety-box {
-            background: #fff8e1;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #ffe082;
-            margin-bottom: 20px;
-        }
-        .safety-box p {
-            margin: 0 0 10px 0;
-            color: #856404;
-            font-weight: bold;
-        }
-        .approval-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: rgba(255, 255, 255, 0.8);
-            z-index: 10;
-        }
-        .approval-overlay-content {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-            text-align: center;
-        }
-        .blurred {
-            filter: blur(5px);
-            pointer-events: none;
-            opacity: 0.6;
-        }
-    </style>
-{% endblock %}
+{% block page_title %}Apply Leave{% endblock %}
 
 {% block content %}
-    <div class="page-header" style="text-align: center;">
-        <h1 class="page-title">{{ title }}</h1>
+<div class="page-header">
+    <div>
+        <h1>Apply for Leave</h1>
+        <p>Submit a leave or outing request - it will route through the approval chain shown below.</p>
     </div>
+</div>
 
-    <div class="container">
-        {% if messages %}
-            <ul class="messages">
-                {% for message in messages %}
-                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-                {% endfor %}
-            </ul>
-        {% endif %}
+{% if latest_leave %}
+<div class="card mb-4">
+    <div class="card-body flex justify-between items-center" style="flex-wrap:wrap; gap:16px;">
+        <div>
+            <div class="text-sm text-muted">Latest request</div>
+            <div class="font-semibold" style="font-size:var(--text-base);">
+                {{ latest_leave.get_leave_type_display }} &middot; {{ latest_leave.out_time|date:"M d" }} &rarr; {{ latest_leave.in_time|date:"M d" }}
+                ({{ latest_leave.get_duration_days }} day{{ latest_leave.get_duration_days|pluralize }})
+            </div>
+        </div>
+        <div class="flex gap-2" style="flex-wrap:wrap;">
+            <span class="badge {{ latest_leave.status|badge_class }}">{{ latest_leave.get_status_display }}</span>
+            {% if latest_leave.status != 'rejected' %}
+            <span class="badge {{ latest_leave.current_stage|badge_class }}">{{ latest_leave.get_current_stage_display }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-footer flex gap-3" style="flex-wrap:wrap;">
+        <span class="text-xs text-muted">Gate-Out: {% if latest_leave.gate_out_at %}<span class="text-primary">Completed {{ latest_leave.gate_out_at|date:"M d, H:i" }}</span>{% else %}Pending{% endif %}</span>
+        <span class="text-xs text-muted">Gate-In: {% if latest_leave.gate_in_at %}Completed {{ latest_leave.gate_in_at|date:"M d, H:i" }}{% else %}Pending{% endif %}</span>
+        <span class="text-xs text-muted">Hostel-In: {% if latest_leave.hostel_in_at %}Completed {{ latest_leave.hostel_in_at|date:"M d, H:i" }}{% else %}Pending{% endif %}</span>
+    </div>
+</div>
+{% endif %}
 
-        {% if student and user_role == 'student' %}
-            {% if active_approved_leave %}
-                <div class="approval-overlay">
-                    <div class="approval-overlay-content">
-                        <h2>Your Leave is Approved!</h2>
-                        <p>Your leave/outing is approved. Please verify your biometric at the gate to proceed.</p>
-                        <p>Departure: {{ active_approved_leave.out_time|date:"Y-m-d H:i" }} | Return: {{ active_approved_leave.in_time|date:"Y-m-d H:i" }}</p>
-                        <a href="{% url 'student_detail_from_url' student.student_id %}"><button style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Back to My Details</button></a>
-                    </div>
-                </div>
+{% if student and user_role == 'student' %}
+    {% if active_approved_leave %}
+    <div class="card mb-4" style="border-color: var(--status-success);">
+        <div class="card-body flex items-center gap-3">
+            <span class="stat-card-icon" style="background:var(--status-success-bg); color:var(--status-success);">{% include 'hostel_app/partials/icon.html' with name='check-circle' %}</span>
+            <div>
+                <div class="font-semibold">Your leave is approved</div>
+                <div class="text-sm text-muted">Verify your biometric at the gate to proceed. Departure {{ active_approved_leave.out_time|date:"d M, H:i" }} &middot; Return {{ active_approved_leave.in_time|date:"d M, H:i" }}</div>
+            </div>
+            <a href="{% url 'student_detail_from_url' student.student_id %}" class="btn btn-secondary" style="margin-left:auto;">My Details</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="grid" style="grid-template-columns: 1.6fr 1fr; align-items:start;" id="applyLeaveGrid">
+    <div class="card {% if active_approved_leave and student.status != 'present' %}hidden{% endif %}">
+        <div class="card-header"><h3>New Request</h3></div>
+        <div class="card-body">
+        <form method="post" id="leaveForm">
+            {% csrf_token %}
+
+            {% if student.gender == 'F' %}
+            <fieldset class="field-group">
+                <legend>{% if is_restricted %}Safety Requirement{% else %}Parent Pick-up Option{% endif %}</legend>
+                {% if is_restricted %}
+                <p class="field-hint mb-4">For your year, you must either have a parent coming or select a companion whose parent is coming.</p>
+                {% endif %}
+                <label class="flex items-center gap-2 text-sm">
+                    {{ form.parent_coming }} {{ form.parent_coming.label }}
+                </label>
+            </fieldset>
             {% endif %}
 
-            <div class="form-section {% if active_approved_leave and student.status != 'present' %}blurred{% endif %}">
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    {# 1. Female Student Parent Option #}
-                    {% if student.gender == 'F' %}
-                        <div class="safety-box">
-                            {% if is_restricted %}
-                                <p>Safety Requirement</p>
-                                <span style="font-size: 0.9em; color: #555; display: block; margin-bottom: 12px;">
-                                    For your year, you must either have a parent coming or select a companion whose parent is coming.
-                                </span>
-                            {% else %}
-                                <p>Parent Pick-up Option</p>
-                            {% endif %}
-                            
-                            <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
-                                {{ form.parent_coming }}
-                                <label for="{{ form.parent_coming.id_for_label }}" style="margin-bottom: 0;">{{ form.parent_coming.label }}</label>
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    {# 2. Restricted Student Companion Search #}
-                    {% if is_restricted %}
-                        <div id="companion-section" class="form-group">
-                            <label for="{{ form.companion_id.id_for_label }}">{{ form.companion_id.label }}</label>
-                            {{ form.companion_id }}
-                            <small style="display: block; color: #666; margin-top: 4px;">{{ form.companion_id.help_text }}</small>
-                            {% for error in form.companion_id.errors %}
-                                <p style="color: red; font-size: 0.9em; margin-top: 5px;">{{ error }}</p>
-                            {% endfor %}
-                        </div>
-
-                        <datalist id="student-list">
-                            {% for s in all_students %}
-                                <option value="{{ s.name }} ({{ s.student_id }})"></option>
-                            {% endfor %}
-                        </datalist>
-
-                        <script>
-                            document.addEventListener('DOMContentLoaded', function() {
-                                const parentComingCheckbox = document.getElementById('id_parent_coming');
-                                const companionSection = document.getElementById('companion-section');
-                                const companionInput = document.getElementById('id_companion_id');
-                                
-                                if (parentComingCheckbox && companionSection) {
-                                    function toggleCompanion() {
-                                        if (parentComingCheckbox.checked) {
-                                            companionSection.style.opacity = '0.5';
-                                            companionSection.style.pointerEvents = 'none';
-                                            companionInput.value = '';
-                                            companionInput.required = false;
-                                        } else {
-                                            companionSection.style.opacity = '1';
-                                            companionSection.style.pointerEvents = 'auto';
-                                            // Optional: make it required via JS if parent not coming
-                                        }
-                                    }
-                                    parentComingCheckbox.addEventListener('change', toggleCompanion);
-                                    toggleCompanion();
-                                }
-                            });
-                        </script>
-                    {% endif %}
-
-                    {# 3. Standard Fields #}
-                    {% for field in form %}
-                        {% if field.name != 'parent_coming' and field.name != 'companion_id' %}
-                            <div class="form-group">
-                                <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
-                                {{ field }}
-                                {% if field.help_text %}
-                                    <small class="form-text text-muted">{{ field.help_text }}</small>
-                                {% endif %}
-                                {% for error in field.errors %}
-                                    <p style="color: red; font-size: 0.9em; margin-top: 5px;">{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-
-                    <button type="submit">Submit Leave Application</button>
-                </form>
+            {% if is_restricted %}
+            <div class="field" id="companion-section">
+                <label class="field-label" for="{{ form.companion_id.id_for_label }}">{{ form.companion_id.label }}</label>
+                {{ form.companion_id }}
+                <span class="field-hint">{{ form.companion_id.help_text }}</span>
+                {% for error in form.companion_id.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
             </div>
+            <datalist id="student-list">
+                {% for s in all_students %}<option value="{{ s.name }} ({{ s.student_id }})"></option>{% endfor %}
+            </datalist>
+            {% endif %}
 
-        {% elif user_role == 'viewer' or user_role == 'editor' %}
-            <p style="text-align: center; color: #007bff; font-weight: bold;">
-                As a {{ user_role|capfirst }}, you cannot apply for leave directly.
-                Please use the <a href="{% url 'leave_management' %}">Leave Management</a> page.
-            </p>
-        {% else %}
-            <p style="text-align: center; color: red;">Error: Not authorized. Please log in as a student.</p>
-        {% endif %}
+            {% for field in form %}
+                {% if field.name != 'parent_coming' and field.name != 'companion_id' %}
+                <div class="field">
+                    <label class="field-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<span class="field-hint">{{ field.help_text }}</span>{% endif %}
+                    {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+                </div>
+                {% endif %}
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary btn-block">
+                <span class="spinner"></span><span class="btn-label-text">Submit Leave Application</span>
+            </button>
+        </form>
+        </div>
     </div>
+
+    <div class="card {% if active_approved_leave and student.status != 'present' %}hidden{% endif %}">
+        <div class="card-header"><h3>Approval Route</h3></div>
+        <div class="card-body">
+            <div id="routeDuration" class="text-sm text-muted mb-4">Select departure and return times to see the route.</div>
+            <ol class="timeline" id="routeTimeline"></ol>
+        </div>
+    </div>
+    </div>
+
+{% elif user_role == 'viewer' or user_role == 'editor' %}
+    <div class="card"><div class="card-body">
+        As a {{ user_role|capfirst }}, you cannot apply for leave directly. Use the <a href="{% url 'leave_management' %}">Leave Overview</a> page.
+    </div></div>
+{% else %}
+    <div class="card"><div class="card-body">Not authorized. Please log in as a student.</div></div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var parentComingCheckbox = document.getElementById('id_parent_coming');
+    var companionSection = document.getElementById('companion-section');
+    var companionInput = document.getElementById('id_companion_id');
+    if (parentComingCheckbox && companionSection) {
+        function toggleCompanion() {
+            var disabled = parentComingCheckbox.checked;
+            companionSection.style.opacity = disabled ? '0.5' : '1';
+            companionSection.style.pointerEvents = disabled ? 'none' : 'auto';
+            if (disabled && companionInput) companionInput.value = '';
+        }
+        parentComingCheckbox.addEventListener('change', toggleCompanion);
+        toggleCompanion();
+    }
+
+    // ---- Approval route preview: fetched from the backend, never
+    // computed here - see hostel_app.views.preview_leave_route(). ----
+    var outInput = document.getElementById('id_out_time');
+    var inInput = document.getElementById('id_in_time');
+    var durationEl = document.getElementById('routeDuration');
+    var timelineEl = document.getElementById('routeTimeline');
+    if (!outInput || !inInput || !timelineEl) return;
+
+    var debounceTimer;
+    function fetchRoute() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function () {
+            if (!outInput.value || !inInput.value) return;
+            var url = '{% url "preview_leave_route" %}?out_time=' + encodeURIComponent(outInput.value) + '&in_time=' + encodeURIComponent(inInput.value);
+            fetch(url).then(function (r) { return r.json(); }).then(renderRoute).catch(function () {});
+        }, 250);
+    }
+
+    function renderRoute(data) {
+        if (!data.valid) {
+            durationEl.textContent = data.error || 'Enter valid dates to preview the route.';
+            timelineEl.innerHTML = '';
+            return;
+        }
+        durationEl.innerHTML = '<strong>' + data.duration + '</strong> day' + (data.duration === 1 ? '' : 's') + ' &rarr; this request will require the following approvals:';
+        timelineEl.innerHTML = data.route.map(function (label, i) {
+            var state = i === 0 ? 'done' : 'locked';
+            return '<li class="timeline-item is-' + state + '"><div class="timeline-marker">' + (i + 1) + '</div>' +
+                   '<div class="timeline-content"><div class="timeline-title">' + label + '</div></div></li>';
+        }).join('');
+    }
+
+    outInput.addEventListener('change', fetchRoute);
+    inInput.addEventListener('change', fetchRoute);
+    fetchRoute();
+});
+</script>
 {% endblock %}

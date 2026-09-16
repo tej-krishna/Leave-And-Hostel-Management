@@ -5,13 +5,15 @@ from django.db.models import Count, Case, When, IntegerField, Q
 from django.db.models.functions import TruncDate
 from django.contrib import messages
 from django.urls import reverse # Import reverse
-from .models import Student, LeaveApplication, StudentStatusLog
+from .models import Student, LeaveApplication, StudentStatusLog, LeaveApprovalHistory
 from .forms import LeaveApplicationForm, StudentForm
 from functools import wraps # Import wraps for decorator
 
-from django.http import JsonResponse, HttpResponse # Import JsonResponse for API, HttpResponse for image
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden, Http404 # Import JsonResponse for API, HttpResponse for image
 from datetime import datetime, timedelta
 from django.utils import timezone # For timezone.now() and timezone-aware datetimes
+from . import workflow
+from .email_utils import send_ao_escalation_email
 
 
 # --- Decorator for Role-Based Access Control ---
@@ -289,10 +291,17 @@ def student_lookup_view(request, query=None): # Add query as a path parameter
                 leave_applications = student.leave_applications.all().order_by('-out_time')
                 status_logs = student.status_logs.all().order_by('-change_timestamp') # Ensure ordering
 
+    latest_leave_timeline = None
+    latest_leave = leave_applications[0] if leave_applications else None
+    if latest_leave:
+        latest_leave_timeline = workflow.build_approval_timeline(latest_leave)
+
     context = {
         'student': student,
         'leave_applications': leave_applications,
         'status_logs': status_logs,
+        'latest_leave': latest_leave,
+        'latest_leave_timeline': latest_leave_timeline,
         'query': search_term, # Use search_term for the template
         'title': 'Student Lookup',
         'user_role': request.session.get('user_role'),
@@ -320,6 +329,8 @@ def login_view(request):
             return redirect('apply_leave')
         elif user_role in ['viewer', 'editor']:
             return redirect('dashboard')
+        elif user_role in workflow.ROLE_TO_STAGE:
+            return redirect('leave_approval_queue')
     return render(request, 'hostel_app/login.html')
 
 
@@ -349,6 +360,10 @@ def perform_login(request):
                 return redirect('apply_leave')
             elif student.role in ['viewer', 'editor']:
                 return redirect('dashboard')
+            elif student.role in workflow.ROLE_TO_STAGE:
+                # The leave-hierarchy roles (warden, caretaker, chief_warden,
+                # dsw, dean, ao, director) land on their approval queue.
+                return redirect('leave_approval_queue')
             else:
                 messages.error(request, 'Your account has an unrecognised role. Please contact support.')
                 request.session.pop('student_pk', None)
@@ -375,6 +390,40 @@ def logout_view(request):
     return redirect('login')
 
 @role_required(['student'])
+def preview_leave_route(request):
+    """
+    AJAX endpoint backing the "approval route" preview on the leave
+    application form. Duration and routing are computed by the exact same
+    backend functions (LeaveApplication.get_duration_days,
+    workflow.get_required_chain) that decide real approval routing later -
+    the frontend never reimplements these thresholds, it only renders
+    whatever this endpoint returns.
+    """
+    out_raw = request.GET.get('out_time', '')
+    in_raw = request.GET.get('in_time', '')
+    try:
+        out_dt = datetime.strptime(out_raw, '%Y-%m-%dT%H:%M')
+        in_dt = datetime.strptime(in_raw, '%Y-%m-%dT%H:%M')
+        out_dt = timezone.make_aware(out_dt) if timezone.is_naive(out_dt) else out_dt
+        in_dt = timezone.make_aware(in_dt) if timezone.is_naive(in_dt) else in_dt
+    except ValueError:
+        return JsonResponse({'valid': False, 'error': 'Enter both dates.'})
+
+    if in_dt <= out_dt:
+        return JsonResponse({'valid': False, 'error': 'Return time must be after departure time.'})
+
+    # An unsaved instance - get_duration_days() does no DB access, so this
+    # never creates a real LeaveApplication row just to preview a route.
+    draft = LeaveApplication(out_time=out_dt, in_time=in_dt)
+    duration = draft.get_duration_days()
+    chain = workflow.get_required_chain(duration)
+    stage_labels = dict(LeaveApplication.STAGE_CHOICES)
+    route = ['Student'] + [stage_labels.get(s, s) for s in chain] + ['Caretaker Verification', 'Departure']
+
+    return JsonResponse({'valid': True, 'duration': duration, 'route': route})
+
+
+@role_required(['student'])
 def apply_leave_view(request):
     student_pk = request.session.get('student_pk')
 
@@ -383,6 +432,11 @@ def apply_leave_view(request):
         return redirect('login')
 
     student = get_object_or_404(Student, pk=student_pk, role='student')
+
+    # Most recent leave request of any status, so the student can see exactly
+    # where it sits in the Warden -> ... -> Director workflow (section 29:
+    # "Current leave / Leave status / Current approval stage").
+    latest_leave = student.leave_applications.order_by('-out_time').first()
 
     # Find the most recent active approved leave for this student (within 24-hour return window)
     active_approved_leave = None
@@ -423,6 +477,7 @@ def apply_leave_view(request):
                     'title': f'Apply for Leave: {student.name}',
                     'user_role': request.session.get('user_role'),
                     'active_approved_leave': active_approved_leave,
+                    'latest_leave': latest_leave,
                 }
                 return render(request, 'hostel_app/apply_leave.html', context)
             
@@ -447,6 +502,7 @@ def apply_leave_view(request):
                     'title': f'Apply for Leave: {student.name}',
                     'user_role': request.session.get('user_role'),
                     'active_approved_leave': active_approved_leave,
+                    'latest_leave': latest_leave,
                 }
                 return render(request, 'hostel_app/apply_leave.html', context)
 
@@ -469,8 +525,9 @@ def apply_leave_view(request):
         'all_students': Student.normal_students.exclude(pk=student.pk).only('name', 'student_id'),
         'title': f'Apply for Leave: {student.name}',
         'user_role': request.session.get('user_role'),
-        'active_approved_leave': active_approved_leave, 
+        'active_approved_leave': active_approved_leave,
         'is_restricted': student.gender == 'F' and student.year not in ['E3', 'E4'],
+        'latest_leave': latest_leave,
     }
     return render(request, 'hostel_app/apply_leave.html', context)
 
@@ -479,53 +536,181 @@ def apply_leave_view(request):
 
 @role_required(['viewer', 'editor'])
 def leave_management_view(request):
-    # Only show leave applications from 'student' role (resident) students
-    all_leave_applications = LeaveApplication.objects.filter(student__role='student').order_by('-out_time')
+    """
+    Read-only oversight of every leave request and where it currently sits
+    in the Warden -> ... -> Director workflow. This used to be where
+    'editor' approved/rejected leaves directly; that would now let a single
+    flat role bypass the entire approval hierarchy the workflow feature
+    exists to enforce (see update_leave_status below), so this view no
+    longer performs approvals - it only shows status/history. Actual
+    approvals happen in leave_approval_queue(), gated to the specific
+    authority whose turn it is.
+    """
+    all_leave_applications = LeaveApplication.objects.filter(
+        student__role='student'
+    ).select_related('student').prefetch_related('approval_history').order_by('-out_time')
     context = {
         'all_leave_applications': all_leave_applications,
-        'title': 'Leave Management',
+        'title': 'Leave Management (Overview)',
         'user_role': request.session.get('user_role'),
         'current_time': timezone.now(),
     }
     return render(request, 'hostel_app/leave_management.html', context)
 
+
 @role_required(['editor'])
 def update_leave_status(request, leave_pk):
-    if request.method == 'POST':
-        # Ensure only leave applications from 'student' role (resident) students can be updated
-        leave_application = get_object_or_404(LeaveApplication, pk=leave_pk, student__role='student')
-        action = request.POST.get('action')
-
-        if action == 'approve':
-            leave_application.status = 'approved'
-            leave_application.save()
-            
-            # --- NEW: Automatically update student status upon approval ---
-            student = leave_application.student
-            new_status = 'outing' if leave_application.leave_type == 'outing' else 'leave'
-            
-            if student.status != new_status:
-                student.status = new_status
-                student.save()
-                
-                # Log the status change
-                StudentStatusLog.objects.create(
-                    student=student,
-                    current_status=new_status,
-                    log_type='manual', # Marking as manual/system since it's triggered by approval
-                )
-
-            messages.success(request, f'Leave for {leave_application.student.name} departing {leave_application.out_time.date()} has been APPROVED and status updated to {new_status}.')
-
-        elif action == 'reject':
-            leave_application.status = 'rejected'
-            leave_application.save()
-            messages.info(request, f'Leave for {leave_application.student.name} departing {leave_application.out_time.date()} has been REJECTED.')
-
-        else:
-            messages.error(request, 'Invalid action for leave update.')
-
+    """
+    Retained only so the existing URL doesn't 404. It intentionally no
+    longer approves/rejects anything: doing so as a flat 'editor' role would
+    bypass the Warden -> Caretaker -> ... -> Director chain implemented in
+    hostel_app/workflow.py. Approvals must go through leave_approval_queue(),
+    which checks the acting user's specific hierarchy role against the
+    leave's actual current_stage.
+    """
+    get_object_or_404(LeaveApplication, pk=leave_pk, student__role='student')
+    messages.warning(
+        request,
+        'Leave approvals now go through the staged workflow (Warden -> Caretaker -> '
+        'Chief Warden -> DSW -> Dean -> AO -> Director, depending on duration). '
+        'Please use the approval queue for your role.',
+    )
     return redirect('leave_management')
+
+
+# --- Multi-stage approval workflow --------------------------------------
+
+def _workflow_actor(request):
+    """The logged-in staff Student record acting as an approval authority,
+    or None if the session doesn't correspond to one."""
+    student_pk = request.session.get('student_pk')
+    if not student_pk:
+        return None
+    return Student.objects.filter(pk=student_pk).first()
+
+
+@role_required(list(workflow.ROLE_TO_STAGE.keys()))
+def leave_approval_queue(request):
+    """
+    One generic queue view shared by every hierarchy role (warden,
+    caretaker, chief_warden, dsw, dean, ao, director) - which requests it
+    shows is derived entirely from workflow.ROLE_TO_STAGE, so the routing
+    logic lives in exactly one place rather than being duplicated per role.
+    Only requests currently awaiting *this* role's authority are shown or
+    actionable, per-role, server-side.
+    """
+    role = request.session.get('user_role')
+    stage = workflow.ROLE_TO_STAGE.get(role)
+    pending = LeaveApplication.objects.filter(
+        status='pending', current_stage=stage, student__role='student'
+    ).select_related('student').prefetch_related('approval_history').order_by('out_time')
+
+    context = {
+        'title': f"{role.replace('_', ' ').title()} - Pending Approvals",
+        'pending_leaves': pending,
+        'stage_label': dict(LeaveApplication.STAGE_CHOICES).get(stage, stage),
+        'user_role': role,
+    }
+    return render(request, 'hostel_app/leave_approval_queue.html', context)
+
+
+@role_required(list(workflow.ROLE_TO_STAGE.keys()))
+def process_leave_approval(request, leave_pk):
+    if request.method != 'POST':
+        return redirect('leave_approval_queue')
+
+    actor = _workflow_actor(request)
+    if actor is None:
+        messages.error(request, 'Your session could not be matched to a staff account.')
+        return redirect('leave_approval_queue')
+
+    action = request.POST.get('action')
+    comment = request.POST.get('comment', '')
+
+    try:
+        if action == 'approve':
+            leave, escalated_to_ao = workflow.approve_leave(leave_pk, actor, comment)
+            if escalated_to_ao:
+                # Generate the letter + send it to AO/Director now that the
+                # DB transaction has committed - an SMTP outage here must
+                # not be able to undo the approval that just happened.
+                send_ao_escalation_email(leave)
+            if leave.current_stage == LeaveApplication.STAGE_CARETAKER_VERIFICATION:
+                messages.success(request, f"Leave for {leave.student.name} fully approved - awaiting Caretaker ID verification.")
+            else:
+                messages.success(request, f"Leave for {leave.student.name} approved and forwarded to {leave.get_current_stage_display()}.")
+        elif action == 'reject':
+            leave = workflow.reject_leave(leave_pk, actor, comment)
+            messages.info(request, f"Leave for {leave.student.name} rejected.")
+        else:
+            messages.error(request, 'Invalid action.')
+    except LeaveApplication.DoesNotExist:
+        messages.error(request, 'Leave request not found.')
+    except workflow.WorkflowError as exc:
+        # Authorization/state-conflict boundary - e.g. someone else already
+        # approved/rejected it, or the request isn't actually at this role's
+        # stage. Never silently succeed here.
+        messages.error(request, str(exc))
+
+    return redirect('leave_approval_queue')
+
+
+@role_required(['caretaker'])
+def caretaker_verification_queue(request):
+    """
+    Deliberately a SEPARATE view/URL from the caretaker's own approval
+    queue (leave_approval_queue with role='caretaker'), even though the
+    same human uses both: approving a request and verifying an already-
+    approved student's departure are different actions on different stages
+    (CARETAKER vs CARETAKER_VERIFICATION), and mixing them in one list would
+    make it unclear which action the caretaker is about to take.
+    """
+    awaiting_verification = LeaveApplication.objects.filter(
+        status='approved',
+        current_stage=LeaveApplication.STAGE_CARETAKER_VERIFICATION,
+        student__role='student',
+    ).select_related('student').order_by('out_time')
+
+    context = {
+        'title': 'Caretaker - Departure ID Verification',
+        'awaiting_verification': awaiting_verification,
+        'user_role': request.session.get('user_role'),
+    }
+    return render(request, 'hostel_app/caretaker_verification.html', context)
+
+
+@role_required(['caretaker'])
+def verify_student_departure(request, leave_pk):
+    if request.method != 'POST':
+        return redirect('caretaker_verification_queue')
+
+    caretaker = _workflow_actor(request)
+    if caretaker is None:
+        messages.error(request, 'Your session could not be matched to a staff account.')
+        return redirect('caretaker_verification_queue')
+
+    submitted_id = request.POST.get('student_id', '')
+
+    try:
+        leave, verified = workflow.verify_departure(leave_pk, caretaker, submitted_id)
+        if verified:
+            messages.success(request, f"{leave.student.name} verified and cleared for departure.")
+        else:
+            messages.error(request, f"ID '{submitted_id}' does not match this request's student. Verification failed.")
+    except LeaveApplication.DoesNotExist:
+        messages.error(request, 'Leave request not found.')
+    except workflow.WorkflowError as exc:
+        messages.error(request, str(exc))
+
+    return redirect('caretaker_verification_queue')
+
+
+@role_required(['viewer', 'editor', 'warden', 'caretaker', 'chief_warden', 'dsw', 'dean', 'ao', 'director'])
+def download_leave_letter(request, leave_pk):
+    leave = get_object_or_404(LeaveApplication, pk=leave_pk)
+    if not leave.letter_pdf:
+        raise Http404('No letter has been generated for this leave request.')
+    return HttpResponse(leave.letter_pdf.read(), content_type='application/pdf')
 
 
 @role_required(['viewer', 'editor'])

@@ -26,8 +26,20 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
 
 <script>
+// This standalone 3D view has no chrome/navigation of its own (it isn't
+// linked from the redesigned sidebar - room_selection.html's embedded
+// picker supersedes it) so it isn't wrapped in the app shell. It still
+// respects the user's saved theme choice for its background, so a direct
+// visit doesn't flash bright white against a dark preference.
+let hms3dIsDark = false;
+try {
+    const pref = localStorage.getItem('hms-theme');
+    hms3dIsDark = pref === 'dark' || (pref !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+} catch (e) {}
+if (hms3dIsDark) document.body.style.background = '#0d1117';
+
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xffffff);
+scene.background = new THREE.Color(hms3dIsDark ? 0x0d1117 : 0xffffff);
 
 /* =====================================
    CAMERA

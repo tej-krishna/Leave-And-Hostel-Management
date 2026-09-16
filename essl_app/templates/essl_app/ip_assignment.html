@@ -1,196 +1,71 @@
 {% extends 'hostel_app/base.html' %}
 
 {% block title %}{{ title }}{% endblock %}
-
-{% block extra_css %}
-    <style>
-        :root {
-            --primary: #4361ee;
-            --secondary: #3f37c9;
-            --success: #4cc9f0;
-            --danger: #f72585;
-            --warning: #ff9f1c;
-            --card-bg: #ffffff;
-            --text-main: #2b2d42;
-            --text-muted: #8d99ae;
-            --border: rgba(0,0,0,0.05);
-        }
-        
-        .main { max-width: 1200px; margin: 0 auto; padding: 10px 0; }
-        
-        .page-header { margin-bottom: 25px; text-align: center; }
-        .page-title { margin: 0; font-size: 1.6rem; font-weight: 800; color: var(--primary); }
-        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
-
-        .config-grid {
-            display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 25px;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-        }
-
-        .card-title { font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-
-        .form-group { margin-bottom: 18px; }
-        .form-group label { display: block; font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #eee;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            outline: none;
-            transition: 0.2s;
-            background: #fdfdfd;
-        }
-        .form-group input:focus { border-color: var(--primary); background: #fff; }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-weight: 700;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: 0.2s;
-            gap: 8px;
-            border: none;
-            width: 100%;
-            text-decoration: none;
-        }
-        .btn-primary { background: var(--primary); color: #fff; }
-        .btn-primary:hover { background: var(--secondary); transform: translateY(-1px); }
-        
-        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
-        .btn-outline:hover { background: var(--primary); color: #fff; }
-
-        table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; padding: 15px; border-bottom: 1px solid #f0f0f0; background: #f8f9fa; }
-        td { padding: 15px; font-size: 0.95rem; border-bottom: 1px solid #f8f9fa; color: var(--text-main); }
-        
-        .badge {
-            padding: 5px 12px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 700;
-        }
-        .badge-success { background: rgba(76, 201, 240, 0.1); color: var(--success); }
-        .badge-danger { background: rgba(247, 37, 133, 0.1); color: var(--danger); }
-        .badge-info { background: rgba(67, 97, 238, 0.1); color: var(--primary); }
-
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-        .status-online { background: var(--success); box-shadow: 0 0 8px rgba(76, 201, 240, 0.6); }
-        .status-offline { background: var(--text-muted); }
-
-        @media (max-width: 992px) {
-            .config-grid { grid-template-columns: 1fr; }
-        }
-        .test-status { font-size: 0.75rem; margin-top: 4px; display: block; color: var(--text-muted); }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.4; }
-            100% { opacity: 1; }
-        }
-        .loading { animation: pulse 1s infinite; pointer-events: none; opacity: 0.7; }
-    </style>
-{% endblock %}
+{% block page_title %}IP Assignment{% endblock %}
 
 {% block content %}
-<div class="main">
-    <div class="page-header">
-        <h1 class="page-title">📡 IP & Location Assignment</h1>
-        <p class="subtitle">Map biometric device IPs to specific entry/exit points.</p>
-    </div>
+<div class="page-header">
+    <div><h1>IP &amp; Location Assignment</h1><p>Map biometric device IPs to specific entry/exit points.</p></div>
+</div>
 
-    <div class="config-grid">
-        <!-- Add/Edit Form -->
-        <div class="card" style="height: fit-content;">
-            <h2 class="card-title" id="form-title">
-                <span id="form-icon">➕</span> Add New Device
-            </h2>
+<div class="grid" style="grid-template-columns: 340px 1fr; align-items:start;">
+    <div class="card">
+        <div class="card-header"><h3 id="form-title">Add New Device</h3></div>
+        <div class="card-body">
             <form method="post" id="device-form">
                 {% csrf_token %}
                 <input type="hidden" name="device_id" id="device_id">
-                <div class="form-group">
-                    <label>Friendly Name</label>
-                    <input type="text" name="name" id="name" placeholder="e.g. Hostel Out 1" required>
+                <div class="field">
+                    <label class="field-label">Friendly Name</label>
+                    <input type="text" name="name" id="name" class="input" placeholder="e.g. Hostel Out 1" required>
                 </div>
-                <div class="form-group">
-                    <label>IP Address</label>
-                    <input type="text" name="ip_address" id="ip_address" placeholder="192.168.137.xx" required>
+                <div class="field">
+                    <label class="field-label">IP Address</label>
+                    <input type="text" name="ip_address" id="ip_address" class="input" placeholder="192.168.137.xx" required>
                 </div>
-                <div class="form-group">
-                    <label>Location Setting</label>
-                    <select name="location_type" id="location_type" required>
+                <div class="field">
+                    <label class="field-label">Location Setting</label>
+                    <select name="location_type" id="location_type" class="select" required>
                         <option value="" disabled selected>Select location...</option>
-                        {% for val, label in location_choices %}
-                            <option value="{{ val }}">{{ label }}</option>
-                        {% endfor %}
+                        {% for val, label in location_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary" id="submit-btn">Save Device Mapping</button>
-                <a href="{% url 'quick_setup_devices' %}" class="btn btn-outline" style="margin-top: 12px; text-decoration: none;">
-                    ⚡ Quick Setup
-                </a>
-                <button type="button" onclick="resetForm()" class="btn btn-outline" style="margin-top: 12px; display: none; border-color: #ddd; color: #666;" id="cancel-btn">Cancel Edit</button>
+                <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Save Device Mapping</button>
+                <a href="{% url 'quick_setup_devices' %}" class="btn btn-secondary btn-block mt-2">{% include 'hostel_app/partials/icon.html' with name='plus' %} Quick Setup</a>
+                <button type="button" onclick="resetForm()" class="btn btn-ghost btn-block mt-2" id="cancel-btn" style="display:none;">Cancel Edit</button>
+            </form>
         </div>
+    </div>
 
-        <!-- Devices List -->
-        <div class="card">
-            <h2 class="card-title">Configured Devices</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Device & Network</th>
-                        <th>Location</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for device in devices %}
-                    <tr id="device-row-{{ device.pk }}">
-                        <td>
-                            <div style="font-weight: 700;">{{ device.name }}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">IP: {{ device.ip_address }}</div>
-                        </td>
-                        <td><span class="badge badge-info">{{ device.get_location_type_display }}</span></td>
-                        <td>
-                            <div id="status-container-{{ device.pk }}">
-                                <span class="status-dot status-offline" id="dot-{{ device.pk }}"></span>
-                                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);" id="text-{{ device.pk }}">Unknown</span>
-                                <small class="test-status" id="time-{{ device.pk }}">Seen: {{ device.last_seen|date:"H:i" }}</small>
-                            </div>
-                        </td>
-                        <td>
-                            <div style="display: flex; gap: 8px;">
-                                <button onclick="testDevice('{{ device.pk }}')" class="btn btn-outline" style="padding: 6px 12px; width: auto; font-size: 0.8rem;" id="test-btn-{{ device.pk }}">Test</button>
-                                <button onclick="editDevice('{{ device.pk }}', '{{ device.name }}', '{{ device.ip_address }}', '{{ device.location_type }}')" class="btn" style="padding: 6px 12px; width: auto; font-size: 0.8rem; background: #f0f0f0; color: #333;">Edit</button>
-                                <a href="{% url 'delete_device' device.pk %}" onclick="return confirm('Remove this device mapping?')" class="btn" style="padding: 6px 12px; width: auto; font-size: 0.8rem; background: #ffeaea; color: #dc3545;">Del</a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 80px;">
-                            <div style="font-size: 2.5rem; margin-bottom: 15px;">📡</div>
-                            No devices configured.<br>Use the form or click "Quick Setup" to start.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <div class="table-wrap">
+        <div class="card-header"><h3>Configured Devices</h3></div>
+        <table class="data-table responsive-cards">
+            <thead><tr><th>Device</th><th>IP</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for device in devices %}
+                <tr id="device-row-{{ device.pk }}">
+                    <td data-label="Device" class="font-semibold">{{ device.name }}</td>
+                    <td data-label="IP" class="text-muted">{{ device.ip_address }}</td>
+                    <td data-label="Location"><span class="badge badge-info">{{ device.get_location_type_display }}</span></td>
+                    <td data-label="Status">
+                        <span class="badge badge-neutral" id="status-badge-{{ device.pk }}">
+                            <span id="text-{{ device.pk }}">Unknown</span>
+                        </span>
+                        <div class="text-xs text-muted" id="time-{{ device.pk }}">Seen: {{ device.last_seen|date:"H:i" }}</div>
+                    </td>
+                    <td data-label="Actions">
+                        <div class="flex gap-2">
+                            <button type="button" onclick="testDevice('{{ device.pk }}')" class="btn btn-sm btn-secondary" id="test-btn-{{ device.pk }}">Test</button>
+                            <button type="button" onclick="editDevice('{{ device.pk }}', '{{ device.name|escapejs }}', '{{ device.ip_address }}', '{{ device.location_type }}')" class="btn btn-sm btn-secondary">Edit</button>
+                            <a href="{% url 'delete_device' device.pk %}" onclick="return confirm('Remove {{ device.name|escapejs }}?')" class="btn btn-sm btn-danger">Delete</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5"><div class="empty-state"><h3>No devices configured</h3><p>Use the form or Quick Setup to get started.</p></div></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
@@ -200,53 +75,38 @@
         document.getElementById('name').value = name;
         document.getElementById('ip_address').value = ip;
         document.getElementById('location_type').value = type;
-        
-        document.getElementById('form-title').innerHTML = '<span>✏️</span> Edit Mapping';
+        document.getElementById('form-title').innerText = 'Edit Mapping';
         document.getElementById('submit-btn').innerText = 'Update Mapping';
-        document.getElementById('cancel-btn').style.display = 'flex';
+        document.getElementById('cancel-btn').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-
     function resetForm() {
         document.getElementById('device-form').reset();
         document.getElementById('device_id').value = '';
-        document.getElementById('form-title').innerHTML = '<span>➕</span> Add New Device';
+        document.getElementById('form-title').innerText = 'Add New Device';
         document.getElementById('submit-btn').innerText = 'Save Device Mapping';
         document.getElementById('cancel-btn').style.display = 'none';
-        document.getElementById('location_type').value = "";
     }
-
     async function testDevice(id) {
         const btn = document.getElementById(`test-btn-${id}`);
-        const dot = document.getElementById(`dot-${id}`);
+        const badge = document.getElementById(`status-badge-${id}`);
         const text = document.getElementById(`text-${id}`);
         const time = document.getElementById(`time-${id}`);
-
-        btn.classList.add('loading');
-        btn.innerText = 'Wait...';
+        btn.classList.add('is-loading'); btn.disabled = true;
         text.innerText = 'Checking...';
-
         try {
             const response = await fetch(`/iclock/test-device/${id}/`);
             const data = await response.json();
-
             if (data.status === 'online') {
-                dot.className = 'status-dot status-online';
-                text.innerText = 'Online';
-                text.style.color = 'var(--success)';
-                time.innerText = 'Online now';
+                badge.className = 'badge badge-success'; text.innerText = 'Online'; time.innerText = 'Online now';
             } else {
-                dot.className = 'status-dot status-offline';
-                text.innerText = 'Offline';
-                text.style.color = 'var(--danger)';
-                time.innerText = 'Unreachable';
+                badge.className = 'badge badge-danger'; text.innerText = 'Offline'; time.innerText = 'Unreachable';
             }
         } catch (error) {
             text.innerText = 'Error';
-            console.error('Test failed:', error);
+            console.error('Device test failed:', error);
         } finally {
-            btn.classList.remove('loading');
-            btn.innerText = 'Test';
+            btn.classList.remove('is-loading'); btn.disabled = false;
         }
     }
 </script>

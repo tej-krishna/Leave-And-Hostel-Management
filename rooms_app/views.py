@@ -4,6 +4,7 @@ from .models import Floor, Room
 from hostel_app.models import Student, HOSTEL_CHOICES # Assuming Student model and HOSTEL_CHOICES are in hostel_app
 import json
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Q # Import Q for complex lookups
 from django.views.decorators.http import require_POST
 
@@ -160,21 +161,7 @@ def allot_student_to_room(request, room_id):
     # if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
     #     return HttpResponseBadRequest("Must be an AJAX request")
 
-    room = get_object_or_404(Room, pk=room_id)
     student_pk = request.POST.get('student_id')
-
-    # Add a check for is_disabled or is_full here as well, though frontend tries to prevent
-    if room.is_disabled:
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({"success": False, "error": "Cannot allot student to a disabled room."}, status=400)
-        messages.error(request, "Cannot allot student to a disabled room.")
-        return redirect('room_selection')
-
-    if room.is_full(): # Use the model method for consistency
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({"success": False, "error": "Room is full. Cannot allot more students."}, status=400)
-        messages.error(request, "Room is full. Cannot allot more students.")
-        return redirect('room_selection')
 
     if not student_pk:
         if request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -182,25 +169,45 @@ def allot_student_to_room(request, room_id):
         messages.error(request, "No student selected for allotment.")
         return redirect('room_selection')
 
-    try:
-        student = get_object_or_404(Student.normal_students, pk=student_pk) # Use normal_students manager
-    except Http404:
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({"success": False, "error": "Selected student not found or cannot be allotted."}, status=404)
-        messages.error(request, "Selected student not found or cannot be allotted.")
-        return redirect('room_selection')
+    # Lock the room (and student) row for the duration of the check-then-act
+    # sequence below. Without this, two concurrent requests for the last free
+    # bed in a room can both pass the is_full()/is_disabled checks before
+    # either has saved, resulting in a room allotted over its capacity.
+    # (select_for_update is a no-op on SQLite but takes effect on
+    # Postgres/MySQL, which the commented-out DATABASES config anticipates.)
+    with transaction.atomic():
+        room = get_object_or_404(Room.objects.select_for_update(), pk=room_id)
 
+        if room.is_disabled:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({"success": False, "error": "Cannot allot student to a disabled room."}, status=400)
+            messages.error(request, "Cannot allot student to a disabled room.")
+            return redirect('room_selection')
 
-    if student.room: # Check if student is already allotted
-        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({"success": False, "error": f"Student {student.name} is already allotted to room {student.room.room_number}."}, status=400)
-        messages.error(request, f"Student {student.name} is already allotted to room {student.room.room_number}.")
-        return redirect('room_selection')
+        if room.is_full(): # Use the model method for consistency
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({"success": False, "error": "Room is full. Cannot allot more students."}, status=400)
+            messages.error(request, "Room is full. Cannot allot more students.")
+            return redirect('room_selection')
 
+        try:
+            student = get_object_or_404(Student.normal_students.select_for_update(), pk=student_pk) # Use normal_students manager
+        except Http404:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({"success": False, "error": "Selected student not found or cannot be allotted."}, status=404)
+            messages.error(request, "Selected student not found or cannot be allotted.")
+            return redirect('room_selection')
 
-    # If all checks pass
-    student.room = room
-    student.save()
+        if student.room: # Check if student is already allotted
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({"success": False, "error": f"Student {student.name} is already allotted to room {student.room.room_number}."}, status=400)
+            messages.error(request, f"Student {student.name} is already allotted to room {student.room.room_number}.")
+            return redirect('room_selection')
+
+        # If all checks pass
+        student.room = room
+        student.save()
+
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
         return JsonResponse({
             "success": True,

@@ -7,8 +7,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.timezone import make_aware, get_current_timezone
 from django.utils import timezone
 from django.contrib import messages
+from django.db import transaction
+from django.db.models import Q
 from .models import AttendanceLog
-from hostel_app.models import Student, StudentStatusLog, LeaveApplication
+from hostel_app.models import Student, StudentStatusLog, LeaveApplication, LeaveApprovalHistory
 from hostel_app.views import role_required
 
 @csrf_exempt
@@ -25,12 +27,14 @@ def iclock_cdata(request):
             print(f"DEBUG: Skipping table '{table}' - not ATTLOG")
             return HttpResponse("OK\n")
             
-        # Get client IP
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            client_ip = x_forwarded_for.split(',')[0]
-        else:
-            client_ip = request.META.get('REMOTE_ADDR')
+        # Get client IP. NOTE: we deliberately do NOT trust the
+        # X-Forwarded-For header here: this endpoint is unauthenticated
+        # (csrf_exempt, no device token) and identifies the calling device
+        # purely by source IP. Nginx/settings.py define no trusted proxy,
+        # so honoring a client-supplied X-Forwarded-For would let anyone
+        # spoof a configured device's IP and forge attendance/status changes
+        # for arbitrary students.
+        client_ip = request.META.get('REMOTE_ADDR')
 
         from .models import BiometricDevice
         device = BiometricDevice.objects.filter(ip_address=client_ip).first()
@@ -88,73 +92,161 @@ def iclock_cdata(request):
                         
                         # --- Dynamic Status Update Logic ---
                         try:
-                            # The eSSL device sends '210190', but DB has 'N210190'
-                            student = Student.objects.get(student_id__endswith=user_id)
-                            
-                            new_status = student.status
-                            current_time = timezone.now()
-                            
-                            # OUT states: '1' (Gate Out), '2' (Hostel Out)
-                            if punch_state in ['1', '2']:
-                                # Only change status if they are 'present'
-                                if student.status == 'present':
-                                    # Check for an active approved leave
-                                    # Allow a window (e.g., within 2 hours of out_time)
-                                    active_leave = LeaveApplication.objects.filter(
-                                        student=student,
-                                        status='approved',
-                                        out_time__lte=current_time + datetime.timedelta(hours=2),
-                                        in_time__gte=current_time - datetime.timedelta(hours=2)
-                                    ).order_by('-out_time').first()
-                                    
-                                    if active_leave:
-                                        new_status = 'outing' if active_leave.leave_type == 'outing' else 'leave'
-                                    else:
-                                        # Unauthorized exit? For now, maybe just don't change status or log it.
-                                        pass
-                                        
-                            # IN states: '0' (Gate In), '3' (Hostel In)
-                            # Per user request: Gate In (0) is good, but keep tracking 
-                            # until Hostel In (3) is punched.
-                            elif punch_state == '3':
-                                if student.status in ['outing', 'leave']:
-                                    new_status = 'present'
-                                    
-                                    # Cleanup: Remove only the PREVIOUS logs of this trip (0,1,2) 
-                                    # but KEEP the '3' (Hostel In) so it shows as the "Present" state in the log table
-                                    numeric_id = student.student_id.lstrip('N').lstrip('n').lstrip('0')
+                            with transaction.atomic():
+                                # The eSSL device sends '210190', but DB has 'N210190'
+                                student = Student.objects.get(student_id__endswith=user_id)
+
+                                new_status = student.status
+                                current_time = timezone.now()
+
+                                numeric_id = student.student_id.lstrip('N').lstrip('n').lstrip('0')
+
+                                # OUT states: '1' (Gate Out), '2' (Hostel Out)
+                                if punch_state in ['1', '2']:
+                                    # New trip starting - clear any stale "Hostel In" logs
+                                    # left over from a previous trip so they don't get
+                                    # mistaken for this trip's return punch.
                                     AttendanceLog.objects.filter(
                                         Q(user_id__icontains=numeric_id) | Q(user_id__icontains=student.student_id),
-                                        punch_state__in=['0', '1', '2']
+                                        punch_state='3'
                                     ).delete()
-                            
-                            elif punch_state == '0':
-                                # Gate In - we log it but DON'T change status to 'present' 
-                                pass
-                                
-                            elif punch_state in ['1', '2']:
-                                # New trip starting - clear any old "Hostel In" logs for this student
-                                numeric_id = student.student_id.lstrip('N').lstrip('n').lstrip('0')
-                                AttendanceLog.objects.filter(
-                                    Q(user_id__icontains=numeric_id) | Q(user_id__icontains=student.student_id),
-                                    punch_state='3'
-                                ).delete()
-                                
-                                if punch_state == '1': new_status = 'outing'
-                                elif punch_state == '2': new_status = 'leave'
-                                    
-                            # Update student status if it changed
-                            if new_status != student.status:
-                                student.status = new_status
-                                student.save()
-                                
-                                # Log the status change
-                                StudentStatusLog.objects.create(
-                                    student=student,
-                                    current_status=new_status,
-                                    log_type='biometric',
-                                )
-                                
+
+                                    # Only change status if they are 'present'
+                                    if student.status == 'present':
+                                        # A fingerprint match alone must never authorize a
+                                        # departure. Beyond the existing time-window check,
+                                        # the leave must have completed the FULL approval
+                                        # chain and passed Caretaker ID verification
+                                        # (current_stage CLEARED_FOR_DEPARTURE), or already
+                                        # be mid-departure (OUT, e.g. this is the Gate-Out
+                                        # punch following an earlier Hostel-Out punch of the
+                                        # same trip) - status='approved' by itself is not
+                                        # enough.
+                                        active_leave = LeaveApplication.objects.select_for_update().filter(
+                                            student=student,
+                                            status='approved',
+                                            current_stage__in=[LeaveApplication.STAGE_CLEARED_FOR_DEPARTURE, LeaveApplication.STAGE_OUT],
+                                            out_time__lte=current_time + datetime.timedelta(hours=2),
+                                            in_time__gte=current_time - datetime.timedelta(hours=2)
+                                        ).order_by('-out_time').first()
+
+                                        if active_leave:
+                                            new_status = 'outing' if active_leave.leave_type == 'outing' else 'leave'
+                                            if active_leave.current_stage == LeaveApplication.STAGE_CLEARED_FOR_DEPARTURE:
+                                                active_leave.current_stage = LeaveApplication.STAGE_OUT
+                                                active_leave.gate_out_at = current_time
+                                                active_leave.save(update_fields=['current_stage', 'gate_out_at'])
+                                                LeaveApprovalHistory.objects.create(
+                                                    leave=active_leave, stage=LeaveApplication.STAGE_OUT, actor=None,
+                                                    action=LeaveApprovalHistory.ACTION_GATE_OUT,
+                                                    comment=f"punch_state={punch_state}, device_ip={client_ip}",
+                                                    previous_status=LeaveApplication.STAGE_CLEARED_FOR_DEPARTURE,
+                                                    new_status=LeaveApplication.STAGE_OUT,
+                                                )
+                                            # else: already OUT - this is a second out-type
+                                            # punch (e.g. Hostel-Out then Gate-Out) for the
+                                            # same trip; idempotent, no duplicate record.
+                                        else:
+                                            # Either no approved leave at all, or one that IS
+                                            # approved but not yet caretaker-verified/cleared.
+                                            # Distinguish the two for the server log so a
+                                            # blocked-but-approved case is visible.
+                                            blocked_leave = LeaveApplication.objects.filter(
+                                                student=student, status='approved',
+                                                out_time__lte=current_time + datetime.timedelta(hours=2),
+                                                in_time__gte=current_time - datetime.timedelta(hours=2),
+                                            ).order_by('-out_time').first()
+                                            if blocked_leave:
+                                                print(
+                                                    f"BLOCKED departure: {student.student_id} has an approved leave "
+                                                    f"(#{blocked_leave.pk}) but it is at stage "
+                                                    f"'{blocked_leave.current_stage}', not caretaker-cleared. "
+                                                    f"Ignoring punch_state={punch_state}."
+                                                )
+                                            else:
+                                                print(f"Unauthorized exit attempt (no approved leave): {student.student_id}")
+
+                                # IN states: '0' (Gate In), '3' (Hostel In)
+                                # Per user request: Gate In (0) is good, but keep tracking
+                                # until Hostel In (3) is punched.
+                                elif punch_state == '3':
+                                    # Tie the return to the SPECIFIC leave this student is
+                                    # currently OUT on, rather than trusting student.status
+                                    # alone - this is what lets us record gate_in/hostel_in
+                                    # timestamps against the right request and detect a
+                                    # Hostel-In with no matching Gate-Out.
+                                    active_out_leave = LeaveApplication.objects.select_for_update().filter(
+                                        student=student, status='approved', current_stage=LeaveApplication.STAGE_OUT,
+                                    ).order_by('-out_time').first()
+
+                                    if active_out_leave:
+                                        new_status = 'present'
+                                        active_out_leave.current_stage = LeaveApplication.STAGE_COMPLETED
+                                        active_out_leave.hostel_in_at = current_time
+                                        active_out_leave.completed_at = current_time
+                                        active_out_leave.save(update_fields=['current_stage', 'hostel_in_at', 'completed_at'])
+                                        LeaveApprovalHistory.objects.create(
+                                            leave=active_out_leave, stage=LeaveApplication.STAGE_COMPLETED, actor=None,
+                                            action=LeaveApprovalHistory.ACTION_HOSTEL_IN,
+                                            comment=f"device_ip={client_ip}",
+                                            previous_status=LeaveApplication.STAGE_OUT,
+                                            new_status=LeaveApplication.STAGE_COMPLETED,
+                                        )
+
+                                        # Cleanup: Remove only the PREVIOUS logs of this trip (0,1,2)
+                                        # but KEEP the '3' (Hostel In) so it shows as the "Present" state in the log table
+                                        AttendanceLog.objects.filter(
+                                            Q(user_id__icontains=numeric_id) | Q(user_id__icontains=student.student_id),
+                                            punch_state__in=['0', '1', '2']
+                                        ).delete()
+                                    elif student.status in ['outing', 'leave']:
+                                        # No leave is tracked as OUT for this student (a
+                                        # Hostel-In with no matching Gate-Out/Hostel-Out -
+                                        # e.g. status was set manually via the status
+                                        # updater rather than through a biometric departure,
+                                        # or the leave record predates this workflow). We
+                                        # still honor it and reset to 'present' rather than
+                                        # stranding the student stuck 'on leave' forever,
+                                        # but flag it clearly as an anomaly rather than
+                                        # silently treating it as a normal tracked return.
+                                        print(
+                                            f"ANOMALY: Hostel-In for {student.student_id} with no matching "
+                                            f"OUT-stage leave (status was '{student.status}'). Resetting to "
+                                            f"'present' without a linked departure record."
+                                        )
+                                        new_status = 'present'
+
+                                elif punch_state == '0':
+                                    # Gate In - we log it but DON'T change status to 'present'.
+                                    # If this student is currently OUT on a tracked leave,
+                                    # record the Gate-In timestamp on it (first time only).
+                                    active_out_leave = LeaveApplication.objects.filter(
+                                        student=student, status='approved', current_stage=LeaveApplication.STAGE_OUT,
+                                        gate_in_at__isnull=True,
+                                    ).order_by('-out_time').first()
+                                    if active_out_leave:
+                                        active_out_leave.gate_in_at = current_time
+                                        active_out_leave.save(update_fields=['gate_in_at'])
+                                        LeaveApprovalHistory.objects.create(
+                                            leave=active_out_leave, stage=LeaveApplication.STAGE_OUT, actor=None,
+                                            action=LeaveApprovalHistory.ACTION_GATE_IN,
+                                            comment=f"device_ip={client_ip}",
+                                            previous_status=LeaveApplication.STAGE_OUT,
+                                            new_status=LeaveApplication.STAGE_OUT,
+                                        )
+
+                                # Update student status if it changed
+                                if new_status != student.status:
+                                    student.status = new_status
+                                    student.save()
+
+                                    # Log the status change
+                                    StudentStatusLog.objects.create(
+                                        student=student,
+                                        current_status=new_status,
+                                        log_type='biometric',
+                                    )
+
                         except Student.DoesNotExist:
                             print(f"Student not found for biometric user_id: {user_id}")
                         except Student.MultipleObjectsReturned:

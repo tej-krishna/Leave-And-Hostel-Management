@@ -25,11 +25,31 @@
             --close-button-color: #888;
         }
 
+        /* Dark-theme values for this page's own palette (structure/JS below
+           is untouched - only the color tokens it already references are
+           swapped, so the 3D view / room grid keep working exactly as
+           before but no longer render a bright-white page in dark mode). */
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --blue-deep: #4d7fff; --blue-primary: #6d8bff; --blue-medium: #2a3a63; --blue-light: #1c2333; --blue-whitest: var(--bg-primary);
+                --neutral-white: var(--surface); --neutral-border: var(--border); --text-dark-blue: var(--text-primary); --text-light: #0d1117;
+                --shadow-color: rgba(0,0,0,0.35);
+                --modal-overlay-bg: rgba(0,0,0,0.7); --modal-bg: var(--surface-elevated); --close-button-color: var(--text-muted);
+            }
+        }
+        :root[data-theme="dark"] {
+            --blue-deep: #4d7fff; --blue-primary: #6d8bff; --blue-medium: #2a3a63; --blue-light: #1c2333; --blue-whitest: var(--bg-primary);
+            --neutral-white: var(--surface); --neutral-border: var(--border); --text-dark-blue: var(--text-primary); --text-light: #0d1117;
+            --shadow-color: rgba(0,0,0,0.35);
+            --modal-overlay-bg: rgba(0,0,0,0.7); --modal-bg: var(--surface-elevated); --close-button-color: var(--text-muted);
+        }
+        body { background: var(--blue-whitest); }
+
         /* 3D View Container */
         #hostel-3d-view {
             width: 100%;
             height: calc(100vh - 100px);
-            background: #ffffff;
+            background: var(--neutral-white);
             position: relative;
             overflow: hidden;
             border-radius: 15px;
@@ -732,10 +752,18 @@
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
+    function hms3dBackgroundColor() {
+        try {
+            const pref = localStorage.getItem('hms-theme');
+            const isDark = pref === 'dark' || (pref !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            return isDark ? 0x161c26 : 0xffffff;
+        } catch (e) { return 0xffffff; }
+    }
+
     function init3D() {
         const container = document.getElementById('hostel-3d-view');
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
+        scene.background = new THREE.Color(hms3dBackgroundColor());
 
         camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
         camera.position.set(35, 20, 35);

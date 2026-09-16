@@ -4,19 +4,40 @@ from django import forms
 from .models import LeaveApplication, Student
 from django.utils import timezone
 
+
+def _apply_input_css_classes(form):
+    """
+    Adds the design system's .input/.select CSS class to every visible
+    field's widget, without each field having to declare it individually.
+    Purely a presentation hook (static/css/components.css) - no effect on
+    validation or submitted data.
+    """
+    for field in form.fields.values():
+        widget = field.widget
+        if isinstance(widget, forms.CheckboxInput):
+            continue
+        css_class = 'select' if isinstance(widget, (forms.Select, forms.SelectMultiple)) else 'input'
+        existing = widget.attrs.get('class', '')
+        widget.attrs['class'] = (existing + ' ' + css_class).strip()
+
+
 class StudentForm(forms.ModelForm):
     class Meta:
         model = Student
         fields = [
-            'name', 'student_id', 'gender', 'dob', 'mobile_number', 
-            'university_email', 'personal_email', 'year', 'branch', 
-            'hostel', 'room', 'parent_name', 'parent_mobile', 
+            'name', 'student_id', 'gender', 'dob', 'mobile_number',
+            'university_email', 'personal_email', 'year', 'branch',
+            'hostel', 'room', 'parent_name', 'parent_mobile',
             'blood_group', 'address', 'role'
         ]
         widgets = {
             'dob': forms.DateInput(attrs={'type': 'date'}),
             'address': forms.Textarea(attrs={'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_input_css_classes(self)
 
 class LeaveApplicationForm(forms.ModelForm):
 
@@ -57,7 +78,8 @@ class LeaveApplicationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.student = kwargs.pop('student', None)
         super().__init__(*args, **kwargs)
-        
+        _apply_input_css_classes(self)
+
         if self.student:
             # Male students cannot have parents come
             if self.student.gender == 'M':
